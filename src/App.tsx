@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/shared/AppShell";
+import { OfflineBanner } from "@/components/shared/OfflineBanner";
+import { InstallPrompt } from "@/components/shared/InstallPrompt";
 import { usePlanStore } from "@/lib/store/plan";
 
 const OnboardingRoute = lazy(() => import("@/routes/onboarding"));
@@ -39,6 +41,8 @@ function AppInitializer() {
 export default function App() {
   return (
     <BrowserRouter>
+      <OfflineBanner />
+      <InstallPrompt />
       <AppInitializer />
       <Suspense fallback={null}>
         <Routes>
