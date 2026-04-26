@@ -13,6 +13,7 @@ import type { SafeRoom, MeetingPoint, EvacuationRoute } from "@/lib/schemas/plan
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,15 @@ import { Map, Plus, Pencil, Trash2 } from "lucide-react";
 
 function nanoid() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function tryParseJson(s: string): boolean {
+  try {
+    JSON.parse(s);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ── Safe Rooms ────────────────────────────────────────────────────────────────
@@ -80,39 +90,61 @@ function SafeRooms() {
           No safe rooms added. These are interior rooms to shelter-in-place.
         </p>
       ) : (
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {rooms.map((r) => (
-            <li key={r.id} className="flex items-center gap-3 rounded border px-3 py-2 text-sm">
-              <div className="flex-1">
-                <span className="font-medium">{r.location}</span>
-                {r.notes && <span className="ml-2 text-xs text-muted-foreground">{r.notes}</span>}
+            <li key={r.id} className="rounded-lg border bg-card px-4 py-3 text-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{r.location}</p>
+                  {r.notes && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{r.notes}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(r)} aria-label={`Edit ${r.location}`}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(r.id)} aria-label="Remove">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(r)} aria-label={`Edit ${r.location}`}>
-                <Pencil className="h-3 w-3" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(r.id)} aria-label="Remove">
-                <Trash2 className="h-3 w-3" />
-              </Button>
             </li>
           ))}
         </ul>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editingId ? "Edit safe room" : "Add safe room"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit safe room" : "Add safe room"}</DialogTitle>
+          </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
-            <div className="space-y-1">
-              <Label>Location *</Label>
-              <Input placeholder="e.g. Basement northeast corner" {...form.register("location")} autoFocus />
-              {form.formState.errors.location && <p className="text-xs text-destructive">{form.formState.errors.location.message}</p>}
+            <div className="space-y-1.5">
+              <Label htmlFor="sr-location">Location *</Label>
+              <Input
+                id="sr-location"
+                placeholder="e.g. Basement northeast corner"
+                {...form.register("location")}
+                autoFocus
+              />
+              {form.formState.errors.location && (
+                <p className="text-xs text-destructive">{form.formState.errors.location.message}</p>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label>Notes</Label>
-              <Input placeholder="e.g. Emergency kit stored here" {...form.register("notes")} />
+            <div className="space-y-1.5">
+              <Label htmlFor="sr-notes">Notes</Label>
+              <Textarea
+                id="sr-notes"
+                placeholder="e.g. Emergency kit stored here. Heavy door."
+                className="resize-none h-20"
+                {...form.register("notes")}
+              />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">{editingId ? "Save" : "Add"}</Button>
+              <Button type="submit" className="bg-green-700 hover:bg-green-800">
+                {editingId ? "Save" : "Add"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -175,51 +207,90 @@ function MeetingPoints() {
           No meeting points yet. Add primary and alternate rally locations.
         </p>
       ) : (
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {points.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 rounded border px-3 py-2 text-sm">
-              <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${p.type === "primary" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{p.type}</span>
-              <div className="flex-1">
-                <span className="font-medium">{p.description}</span>
-                {p.address && <span className="ml-2 text-xs text-muted-foreground">{p.address}</span>}
+            <li key={p.id} className="rounded-lg border bg-card px-4 py-3 text-sm">
+              <div className="flex items-start gap-3">
+                <span className={`mt-0.5 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
+                  p.type === "primary"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}>
+                  {p.type === "primary" ? "Primary" : "Alternate"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{p.description}</p>
+                  {p.address && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.address}</p>
+                  )}
+                  {p.notes && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.notes}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(p)} aria-label="Edit">
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(p.id)} aria-label="Remove">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(p)} aria-label="Edit">
-                <Pencil className="h-3 w-3" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(p.id)} aria-label="Remove">
-                <Trash2 className="h-3 w-3" />
-              </Button>
             </li>
           ))}
         </ul>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editingId ? "Edit meeting point" : "Add meeting point"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit meeting point" : "Add meeting point"}</DialogTitle>
+          </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
-            <div className="space-y-1">
-              <Label>Type *</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" {...form.register("type")}>
-                <option value="primary">Primary</option>
-                <option value="alternate">Alternate</option>
+            <div className="space-y-1.5">
+              <Label htmlFor="mp-type">Type *</Label>
+              <select
+                id="mp-type"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                {...form.register("type")}
+              >
+                <option value="primary">Primary — first rally point</option>
+                <option value="alternate">Alternate — backup location</option>
               </select>
             </div>
-            <div className="space-y-1">
-              <Label>Description *</Label>
-              <Input placeholder="e.g. Front yard oak tree" {...form.register("description")} autoFocus />
-              {form.formState.errors.description && <p className="text-xs text-destructive">{form.formState.errors.description.message}</p>}
+            <div className="space-y-1.5">
+              <Label htmlFor="mp-description">Description *</Label>
+              <Input
+                id="mp-description"
+                placeholder="e.g. Front yard oak tree"
+                {...form.register("description")}
+                autoFocus
+              />
+              {form.formState.errors.description && (
+                <p className="text-xs text-destructive">{form.formState.errors.description.message}</p>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label>Address</Label>
-              <Input placeholder="e.g. 123 Main St" {...form.register("address")} />
+            <div className="space-y-1.5">
+              <Label htmlFor="mp-address">Address</Label>
+              <Input
+                id="mp-address"
+                placeholder="e.g. 123 Main St, Springfield"
+                {...form.register("address")}
+              />
             </div>
-            <div className="space-y-1">
-              <Label>Notes</Label>
-              <Input {...form.register("notes")} />
+            <div className="space-y-1.5">
+              <Label htmlFor="mp-notes">Notes</Label>
+              <Textarea
+                id="mp-notes"
+                placeholder="e.g. Meet by the mailbox. Bring go-bags."
+                className="resize-none h-20"
+                {...form.register("notes")}
+              />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">{editingId ? "Save" : "Add"}</Button>
+              <Button type="submit" className="bg-green-700 hover:bg-green-800">
+                {editingId ? "Save" : "Add"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -238,6 +309,8 @@ function EvacuationRoutes() {
   const updateLogistics = usePlanStore((s) => s.updateLogistics);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [geojsonDraft, setGeojsonDraft] = useState("");
+  const [geojsonError, setGeojsonError] = useState<string | null>(null);
   const form = useForm<RouteForm>({
     resolver: zodResolver(RouteFormSchema),
     defaultValues: { name: "", notes: "" },
@@ -245,23 +318,30 @@ function EvacuationRoutes() {
 
   function openAdd() {
     form.reset({ name: "", notes: "" });
+    setGeojsonDraft("");
+    setGeojsonError(null);
     setEditingId(null);
     setOpen(true);
   }
 
   function openEdit(r: EvacuationRoute) {
     form.reset({ name: r.name, notes: r.notes ?? "" });
+    setGeojsonDraft(r.geojson ?? "");
+    setGeojsonError(null);
     setEditingId(r.id);
     setOpen(true);
   }
 
   async function onSubmit(values: RouteForm) {
-    const existing = routes.find((r) => r.id === editingId);
+    if (geojsonDraft.trim() && !tryParseJson(geojsonDraft)) {
+      setGeojsonError("Invalid GeoJSON — check syntax and try again.");
+      return;
+    }
     const item: EvacuationRoute = {
       id: editingId ?? nanoid(),
       name: values.name,
       notes: values.notes || undefined,
-      geojson: existing?.geojson,
+      geojson: geojsonDraft.trim() || undefined,
     };
     const updated = editingId
       ? routes.map((r) => (r.id === editingId ? item : r))
@@ -290,48 +370,91 @@ function EvacuationRoutes() {
       ) : (
         <ul className="space-y-3">
           {routes.map((r) => (
-            <li key={r.id} className="rounded border px-3 py-3 text-sm space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <span className="font-medium">{r.name}</span>
-                  {r.notes && <span className="ml-2 text-xs text-muted-foreground">{r.notes}</span>}
+            <li key={r.id} className="rounded-lg border bg-card text-sm overflow-hidden">
+              <div className="flex items-start gap-3 px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{r.name}</p>
+                  {r.notes && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{r.notes}</p>
+                  )}
                 </div>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(r)} aria-label="Edit">
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(r.id)} aria-label="Remove">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(r)} aria-label="Edit">
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(r.id)} aria-label="Remove">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-              <RouteMap
-                geojson={r.geojson}
-                onSave={async (geojson) => {
-                  const updated = routes.map((route) =>
-                    route.id === r.id ? { ...route, geojson: geojson || undefined } : route
-                  );
-                  await updateLogistics({ evacuation_routes: updated });
-                }}
-              />
+              <div className="border-t px-4 pb-3 pt-2">
+                <RouteMap geojson={r.geojson} readOnly />
+              </div>
             </li>
           ))}
         </ul>
       )}
+
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editingId ? "Edit route" : "Add evacuation route"}</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit evacuation route" : "Add evacuation route"}</DialogTitle>
+          </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
-            <div className="space-y-1">
-              <Label>Route name *</Label>
-              <Input placeholder="e.g. Route A — North on Oak St" {...form.register("name")} autoFocus />
-              {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}
+            <div className="space-y-1.5">
+              <Label htmlFor="er-name">Route name *</Label>
+              <Input
+                id="er-name"
+                placeholder="e.g. Route A — North on Oak St"
+                {...form.register("name")}
+                autoFocus
+              />
+              {form.formState.errors.name && (
+                <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label>Notes</Label>
-              <Input placeholder="e.g. Avoid highway during rush hour" {...form.register("notes")} />
+            <div className="space-y-1.5">
+              <Label htmlFor="er-notes">Notes</Label>
+              <Input
+                id="er-notes"
+                placeholder="e.g. Avoid highway during rush hour"
+                {...form.register("notes")}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="er-geojson">Map route (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Draw a route at{" "}
+                <a
+                  href="https://geojson.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-foreground"
+                >
+                  geojson.io
+                </a>
+                {" "}and paste the GeoJSON below.
+              </p>
+              <Textarea
+                id="er-geojson"
+                value={geojsonDraft}
+                onChange={(e) => {
+                  setGeojsonDraft(e.target.value);
+                  setGeojsonError(null);
+                }}
+                className="font-mono text-xs h-28 resize-none"
+                placeholder={'{"type":"LineString","coordinates":[[lng,lat],[lng,lat]]}'}
+                spellCheck={false}
+              />
+              {geojsonError && (
+                <p className="text-xs text-destructive">{geojsonError}</p>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">{editingId ? "Save" : "Add"}</Button>
+              <Button type="submit" className="bg-green-700 hover:bg-green-800">
+                {editingId ? "Save" : "Add"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
