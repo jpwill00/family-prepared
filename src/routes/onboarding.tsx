@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlanStore } from "@/lib/store/plan";
+import { RepoSchema } from "@/lib/schemas/plan";
 import { importRepoFromZip } from "@/lib/persistence/zip";
 import { serializeRepo } from "@/lib/persistence/yaml";
 import { mergeFiles } from "@/lib/persistence/idb";
@@ -13,6 +14,7 @@ import { ShieldCheck, Upload, GitBranch, AlertCircle } from "lucide-react";
 export default function OnboardingRoute() {
   const navigate = useNavigate();
   const setRepo = usePlanStore((s) => s.setRepo);
+  const initialized = usePlanStore((s) => s.initialized);
   const repo = usePlanStore((s) => s.repo);
 
   const [planName, setPlanName] = useState("My Family Plan");
@@ -21,10 +23,10 @@ export default function OnboardingRoute() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleStartFresh() {
-    if (!repo) return;
+    const base = repo ?? RepoSchema.parse({});
     await setRepo({
-      ...repo,
-      plan_yaml: { ...repo.plan_yaml, name: planName.trim() || "My Family Plan" },
+      ...base,
+      plan_yaml: { ...base.plan_yaml, name: planName.trim() || "My Family Plan" },
     });
     // Seed the reference library from the bundled ZIP
     try {
@@ -108,8 +110,9 @@ export default function OnboardingRoute() {
               <Button
                 className="w-full bg-green-700 hover:bg-green-800"
                 onClick={handleStartFresh}
+                disabled={!initialized}
               >
-                Create plan
+                {initialized ? "Create plan" : "Loading…"}
               </Button>
             </CardContent>
           </Card>
