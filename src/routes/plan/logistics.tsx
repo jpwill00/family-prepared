@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { usePlanStore } from "@/lib/store/plan";
+import { RouteMap } from "@/components/plan/RouteMap";
 import {
   SafeRoomSchema,
   MeetingPointSchema,
@@ -284,23 +285,33 @@ function EvacuationRoutes() {
       </div>
       {routes.length === 0 ? (
         <p className="text-sm text-muted-foreground px-1">
-          No routes yet. Add named evacuation paths — map drawing coming in Sprint 2.
+          No routes yet. Add named evacuation paths with optional map routes.
         </p>
       ) : (
-        <ul className="space-y-1">
+        <ul className="space-y-3">
           {routes.map((r) => (
-            <li key={r.id} className="flex items-center gap-3 rounded border px-3 py-2 text-sm">
-              <div className="flex-1">
-                <span className="font-medium">{r.name}</span>
-                {r.notes && <span className="ml-2 text-xs text-muted-foreground">{r.notes}</span>}
-                {!r.geojson && <span className="ml-2 text-xs text-amber-600">no map</span>}
+            <li key={r.id} className="rounded border px-3 py-3 text-sm space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <span className="font-medium">{r.name}</span>
+                  {r.notes && <span className="ml-2 text-xs text-muted-foreground">{r.notes}</span>}
+                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(r)} aria-label="Edit">
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(r.id)} aria-label="Remove">
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               </div>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(r)} aria-label="Edit">
-                <Pencil className="h-3 w-3" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(r.id)} aria-label="Remove">
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              <RouteMap
+                geojson={r.geojson}
+                onSave={async (geojson) => {
+                  const updated = routes.map((route) =>
+                    route.id === r.id ? { ...route, geojson: geojson || undefined } : route
+                  );
+                  await updateLogistics({ evacuation_routes: updated });
+                }}
+              />
             </li>
           ))}
         </ul>

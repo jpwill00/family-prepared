@@ -14,6 +14,7 @@ export default function SettingsRoute() {
   const [planName, setPlanName] = useState(repo?.plan_yaml.name ?? "");
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -44,6 +45,27 @@ export default function SettingsRoute() {
       setError("Failed to export ZIP backup");
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleExportPdf() {
+    if (!repo) return;
+    setError(null);
+    setExportingPdf(true);
+    try {
+      const { exportPdf } = await import("@/lib/persistence/pdf");
+      const blob = await exportPdf(repo);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = (repo.plan_yaml.name ?? "family-plan").replace(/[^a-z0-9]/gi, "-").toLowerCase();
+      a.download = `${safeName}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Failed to export PDF");
+    } finally {
+      setExportingPdf(false);
     }
   }
 
@@ -102,9 +124,18 @@ export default function SettingsRoute() {
               {exporting ? "Exporting…" : "Export ZIP backup"}
             </Button>
           </div>
-          <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-            <p className="font-medium mb-1">PDF export — coming soon</p>
-            <p className="text-xs">Print-ready emergency binder PDF export is planned for a future sprint.</p>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Download a print-ready emergency binder PDF with all plan sections.
+            </p>
+            <Button
+              variant="outline"
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {exportingPdf ? "Generating PDF…" : "Export PDF binder"}
+            </Button>
           </div>
         </section>
 
