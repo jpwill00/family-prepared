@@ -1,5 +1,13 @@
 import { create } from "zustand";
-import { loadRepo, saveRepo, clearRepo as clearIdb } from "@/lib/persistence/idb";
+import {
+  loadRepo,
+  saveRepo,
+  clearRepo as clearIdb,
+  loadFiles,
+  saveFiles,
+  clearFiles,
+  deleteFile as idbDeleteFile,
+} from "@/lib/persistence/idb";
 import { RepoSchema } from "@/lib/schemas/plan";
 import type { Repo, Household, Communication, Logistics, Inventory } from "@/lib/schemas/plan";
 
@@ -11,6 +19,7 @@ export interface PlanStore {
   repo: Repo | null;
   initialized: boolean;
   firstRun: boolean;
+  rawFiles: Map<string, string>;
 
   initialize(): Promise<void>;
   setRepo(repo: Repo): Promise<void>;
@@ -19,17 +28,24 @@ export interface PlanStore {
   updateLogistics(logistics: Partial<Logistics>): Promise<void>;
   updateInventory(inventory: Partial<Inventory>): Promise<void>;
   reset(): Promise<void>;
+
+  // Raw content file operations
+  getFile(path: string): string | null;
+  setFile(path: string, content: string): Promise<void>;
+  deleteFile(path: string): Promise<void>;
+  listFiles(prefix: string): string[];
 }
 
 export const usePlanStore = create<PlanStore>()((set, get) => ({
   repo: null,
   initialized: false,
   firstRun: false,
+  rawFiles: new Map(),
 
   async initialize() {
     if (get().initialized) return;
-    const loaded = await loadRepo();
-    set({ repo: loaded ?? emptyRepo(), initialized: true, firstRun: !loaded });
+    const [loaded, files] = await Promise.all([loadRepo(), loadFiles()]);
+    set({ repo: loaded ?? emptyRepo(), initialized: true, firstRun: !loaded, rawFiles: files });
   },
 
   async setRepo(repo) {
@@ -74,7 +90,31 @@ export const usePlanStore = create<PlanStore>()((set, get) => ({
   },
 
   async reset() {
-    await clearIdb();
-    set({ repo: emptyRepo() });
+    await Promise.all([clearIdb(), clearFiles()]);
+    set({ repo: emptyRepo(), rawFiles: new Map() });
+  },
+
+  getFile(path) {
+    return get().rawFiles.get(path) ?? null;
+  },
+
+  async setFile(path, content) {
+    const next = new Map(get().rawFiles);
+    next.set(path, content);
+    set({ rawFiles: next });
+    await saveFiles(next);
+  },
+
+  async deleteFile(path) {
+    const next = new Map(get().rawFiles);
+    next.delete(path);
+    set({ rawFiles: next });
+    await idbDeleteFile(path);
+  },
+
+  listFiles(prefix) {
+    return [...get().rawFiles.keys()]
+      .filter((p) => p.startsWith(prefix))
+      .sort();
   },
 }));
