@@ -1,9 +1,42 @@
 import { Link } from "react-router-dom";
+import { BookOpen, PackageOpen } from "lucide-react";
 import { usePlanStore } from "@/lib/store/plan";
-import { BookOpen, ChevronRight } from "lucide-react";
+import { AreaCard } from "@/components/library/AreaCard";
 
 export default function LibraryIndexRoute() {
-  const manifest = usePlanStore((s) => s.repo?.library_manifest);
+  const repo = usePlanStore((s) => s.repo);
+  const listFiles = usePlanStore((s) => s.listFiles);
+
+  const areas = repo?.library_manifest?.content_areas ?? [];
+
+  function articleCount(areaPath: string) {
+    return listFiles(`library/${areaPath}/`).filter((p) => p.endsWith(".md")).length;
+  }
+
+  if (areas.length === 0) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-6">
+          <BookOpen className="h-5 w-5 text-blue-700" />
+          <h1 className="text-2xl font-bold text-blue-700">Reference Library</h1>
+        </div>
+        <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
+          <PackageOpen className="mx-auto h-10 w-10 mb-3 opacity-30" />
+          <p className="text-sm font-medium mb-1">No library content loaded</p>
+          <p className="text-xs max-w-sm mx-auto mb-4">
+            Import the template ZIP to get curated reference articles on first aid,
+            water storage, communications, and more.
+          </p>
+          <Link
+            to="/onboarding"
+            className="text-xs text-blue-600 hover:underline"
+          >
+            Go to onboarding to import content →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -11,36 +44,16 @@ export default function LibraryIndexRoute() {
         <BookOpen className="h-5 w-5 text-blue-700" />
         <h1 className="text-2xl font-bold text-blue-700">Reference Library</h1>
       </div>
-
-      {!manifest || manifest.content_areas.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
-          <BookOpen className="mx-auto h-10 w-10 mb-3 opacity-30" />
-          <p className="text-sm font-medium mb-1">No library content installed</p>
-          <p className="text-xs">
-            Import the official template ZIP to add curated guides for first aid,
-            evacuation, water safety, and more.
-          </p>
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {manifest.content_areas.map((area) => (
-            <li key={area.path}>
-              <Link
-                to={`/library/${area.path}`}
-                className="flex items-center gap-3 rounded-lg border p-4 hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{area.title}</p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {area.content_type.replace(/_/g, " ")}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {areas.map((area) => (
+          <AreaCard
+            key={area.path}
+            path={area.path}
+            title={area.title}
+            articleCount={articleCount(area.path)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

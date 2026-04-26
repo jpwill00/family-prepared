@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlanStore } from "@/lib/store/plan";
 import { importRepoFromZip } from "@/lib/persistence/zip";
+import { serializeRepo } from "@/lib/persistence/yaml";
+import { mergeFiles } from "@/lib/persistence/idb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +26,28 @@ export default function OnboardingRoute() {
       ...repo,
       plan_yaml: { ...repo.plan_yaml, name: planName.trim() || "My Family Plan" },
     });
+    // Seed the reference library from the bundled ZIP
+    try {
+      const res = await fetch("/seed-library.zip");
+      if (res.ok) {
+        const blob = await res.blob();
+        const seedRepo = await importRepoFromZip(new File([blob], "seed-library.zip"));
+        const seedFiles = serializeRepo(seedRepo);
+        // Only import library/* paths
+        const libraryFiles = new Map<string, string>();
+        for (const [path, content] of seedFiles) {
+          if (path.startsWith("library/")) libraryFiles.set(path, content);
+        }
+        await mergeFiles(libraryFiles);
+        usePlanStore.setState((s) => {
+          const next = new Map(s.rawFiles);
+          for (const [k, v] of libraryFiles) next.set(k, v);
+          return { rawFiles: next };
+        });
+      }
+    } catch {
+      // Seed library is best-effort — don't block onboarding if it fails
+    }
     navigate("/plan/household", { replace: true });
   }
 
