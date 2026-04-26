@@ -1,0 +1,129 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# CI/CD Pipeline — family-prepared
+#
+# Triggers:
+#   - Every PR targeting main        → run tests + lint + pre-deploy
+#   - Every push to main             → run tests + lint + pre-deploy
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+
+  # ── Job 1: Test Suite ───────────────────────────────────────────────────────
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run test suite
+        run: pnpm test:run
+
+  # ── Job 2: Lint & Typecheck ─────────────────────────────────────────────────
+  lint:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  # ── Job 3: Pre-Deploy Validation ────────────────────────────────────────────
+  pre-deploy:
+    name: Pre-Deploy Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check .env.example completeness
+        run: |
+          echo "Checking that all VITE_ vars in .env.example are documented..."
+          grep -c "VITE_" .env.example | grep -qv "^0$" && echo "✅ .env.example has VITE_ vars"
+
+      - name: Secrets scan
+        run: |
+          echo "Scanning for accidental secrets..."
+          ! grep -rE "(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|PRIVATE_KEY)" \
+            src/ --include="*.ts" --include="*.tsx" --include="*.js" \
+            && echo "✅ No secrets found"
+
+      - name: Production build
+        run: pnpm build
+        env:
+          VITE_GITHUB_CLIENT_ID: ci-placeholder
+          VITE_TEMPLATE_REPO: family-prepared/family-prepared-template
+          VITE_REGISTRY_URL: https://example.com/registry.json
+
+  # ── Job 4: Auto-Merge ───────────────────────────────────────────────────────
+  auto-merge:
+    name: Auto-Merge PR
+    runs-on: ubuntu-latest
+    needs: [test, lint, pre-deploy]
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Auto-merge PR
+        uses: pascalgn/automerge-action@v0.16.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_METHOD: squash
+          MERGE_LABELS: ""
+          MERGE_DELETE_BRANCH: "true"
