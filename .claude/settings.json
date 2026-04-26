@@ -1,0 +1,36 @@
+{
+  "model": "claude-sonnet-4-6",
+  "alwaysThinkingEnabled": false,
+  "cleanupPeriodDays": 30,
+  "extraKnownMarketplaces": {
+    "wshobson-agents": {
+      "source": {
+        "source": "github",
+        "repo": "wshobson/agents",
+        "path": ".claude-plugin/marketplace.json"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "frontend-mobile-development@wshobson-agents": true,
+    "comprehensive-review@wshobson-agents": true,
+    "error-debugging@wshobson-agents": true,
+    "tdd-workflows@wshobson-agents": true,
+    "git-pr-workflows@wshobson-agents": true,
+    "accessibility-compliance@wshobson-agents": true
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "(?i)(exit|quit|clear|done|finished|bye|goodbye|session)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/retrospective-trigger.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
