@@ -45,6 +45,7 @@ export default function HouseholdRoute() {
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -87,8 +88,10 @@ export default function HouseholdRoute() {
     setOpen(false);
   }
 
-  async function handleDelete(id: string) {
-    await updateHousehold({ members: members.filter((m) => m.id !== id) });
+  async function handleDeleteConfirm() {
+    if (!deleteId) return;
+    await updateHousehold({ members: members.filter((m) => m.id !== deleteId) });
+    setDeleteId(null);
   }
 
   return (
@@ -150,7 +153,7 @@ export default function HouseholdRoute() {
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(m.id)}
+                  onClick={() => setDeleteId(m.id)}
                   aria-label={`Remove ${m.name}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -160,6 +163,33 @@ export default function HouseholdRoute() {
           ))}
         </ul>
       )}
+
+      <Dialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove member?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {deleteId && (() => {
+              const m = members.find((m) => m.id === deleteId);
+              return m
+                ? `This will permanently remove ${m.name} from your household.`
+                : "This will permanently remove this member.";
+            })()}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+            >
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
