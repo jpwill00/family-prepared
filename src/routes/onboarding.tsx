@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { usePlanStore } from "@/lib/store/plan";
 import { RepoSchema } from "@/lib/schemas/plan";
 import { importRepoFromZip } from "@/lib/persistence/zip";
-import { serializeRepo } from "@/lib/persistence/yaml";
 import { mergeFiles } from "@/lib/persistence/idb";
+import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,19 +33,23 @@ export default function OnboardingRoute() {
       const res = await fetch("/seed-library.zip");
       if (res.ok) {
         const blob = await res.blob();
-        const seedRepo = await importRepoFromZip(new File([blob], "seed-library.zip"));
-        const seedFiles = serializeRepo(seedRepo);
-        // Only import library/* paths
+        const zip = await JSZip.loadAsync(blob);
         const libraryFiles = new Map<string, string>();
-        for (const [path, content] of seedFiles) {
-          if (path.startsWith("library/")) libraryFiles.set(path, content);
+        await Promise.all(
+          Object.entries(zip.files)
+            .filter(([path, entry]) => path.startsWith("library/") && !entry.dir)
+            .map(async ([path, entry]) => {
+              libraryFiles.set(path, await entry.async("string"));
+            }),
+        );
+        if (libraryFiles.size > 0) {
+          await mergeFiles(libraryFiles);
+          usePlanStore.setState((s) => {
+            const next = new Map(s.rawFiles);
+            for (const [k, v] of libraryFiles) next.set(k, v);
+            return { rawFiles: next };
+          });
         }
-        await mergeFiles(libraryFiles);
-        usePlanStore.setState((s) => {
-          const next = new Map(s.rawFiles);
-          for (const [k, v] of libraryFiles) next.set(k, v);
-          return { rawFiles: next };
-        });
       }
     } catch {
       // Seed library is best-effort — don't block onboarding if it fails
@@ -61,7 +65,7 @@ export default function OnboardingRoute() {
     try {
       const imported = await importRepoFromZip(file);
       await setRepo(imported);
-      navigate("/plan/household", { replace: true });
+      window.location.href = "/plan/household";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to import backup");
     } finally {
