@@ -61,7 +61,7 @@ export function AppShell() {
           ))}
         </ul>
       </nav>
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto bg-slate-50 p-6">
         <Outlet />
       </main>
     </div>

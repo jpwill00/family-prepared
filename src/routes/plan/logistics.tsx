@@ -77,7 +77,7 @@ function SafeRooms() {
   }
 
   return (
-    <section>
+    <section className="rounded-xl border bg-white shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold">Safe rooms</h2>
         <Button size="sm" variant="outline" onClick={openAdd}>
@@ -86,13 +86,13 @@ function SafeRooms() {
         </Button>
       </div>
       {rooms.length === 0 ? (
-        <p className="text-sm text-muted-foreground px-1">
+        <p className="text-sm text-muted-foreground">
           No safe rooms added. These are interior rooms to shelter-in-place.
         </p>
       ) : (
         <ul className="space-y-2">
           {rooms.map((r) => (
-            <li key={r.id} className="rounded-lg border bg-card px-4 py-3 text-sm">
+            <li key={r.id} className="rounded-lg border border-border/60 bg-slate-50 px-4 py-3 text-sm">
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium">{r.location}</p>
@@ -194,7 +194,7 @@ function MeetingPoints() {
   }
 
   return (
-    <section>
+    <section className="rounded-xl border bg-white shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold">Meeting points</h2>
         <Button size="sm" variant="outline" onClick={openAdd}>
@@ -203,13 +203,13 @@ function MeetingPoints() {
         </Button>
       </div>
       {points.length === 0 ? (
-        <p className="text-sm text-muted-foreground px-1">
+        <p className="text-sm text-muted-foreground">
           No meeting points yet. Add primary and alternate rally locations.
         </p>
       ) : (
         <ul className="space-y-2">
           {points.map((p) => (
-            <li key={p.id} className="rounded-lg border bg-card px-4 py-3 text-sm">
+            <li key={p.id} className="rounded-lg border border-border/60 bg-slate-50 px-4 py-3 text-sm">
               <div className="flex items-start gap-3">
                 <span className={`mt-0.5 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
                   p.type === "primary"
@@ -355,7 +355,7 @@ function EvacuationRoutes() {
   }
 
   return (
-    <section>
+    <section className="rounded-xl border bg-white shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold">Evacuation routes</h2>
         <Button size="sm" variant="outline" onClick={openAdd}>
@@ -364,13 +364,13 @@ function EvacuationRoutes() {
         </Button>
       </div>
       {routes.length === 0 ? (
-        <p className="text-sm text-muted-foreground px-1">
+        <p className="text-sm text-muted-foreground">
           No routes yet. Add named evacuation paths with optional map routes.
         </p>
       ) : (
         <ul className="space-y-3">
           {routes.map((r) => (
-            <li key={r.id} className="rounded-lg border bg-card text-sm overflow-hidden">
+            <li key={r.id} className="rounded-lg border border-border/60 bg-slate-50 text-sm overflow-hidden">
               <div className="flex items-start gap-3 px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium">{r.name}</p>
