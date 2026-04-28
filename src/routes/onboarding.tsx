@@ -3,13 +3,29 @@ import { useNavigate } from "react-router-dom";
 import { usePlanStore } from "@/lib/store/plan";
 import { RepoSchema } from "@/lib/schemas/plan";
 import { importRepoFromZip } from "@/lib/persistence/zip";
-import { mergeFiles } from "@/lib/persistence/idb";
+import { mergeFiles, saveSyncMeta } from "@/lib/persistence/idb";
+import { startDeviceFlow, pollForToken } from "@/lib/github/auth";
+import { getRepoMeta, pullRepo } from "@/lib/github/sync";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, Upload, GitBranch, AlertCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ShieldCheck, Upload, GitBranch, AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+
+type GitHubStep =
+  | { kind: "idle" }
+  | { kind: "waiting"; userCode: string; verificationUri: string }
+  | { kind: "polling" }
+  | { kind: "repo_input"; token: string }
+  | { kind: "syncing" };
 
 export default function OnboardingRoute() {
   const navigate = useNavigate();
@@ -20,7 +36,10 @@ export default function OnboardingRoute() {
   const [planName, setPlanName] = useState("My Family Plan");
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [ghStep, setGhStep] = useState<GitHubStep>({ kind: "idle" });
+  const [repoInput, setRepoInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   async function handleStartFresh() {
     const base = repo ?? RepoSchema.parse({});
@@ -72,6 +91,67 @@ export default function OnboardingRoute() {
       setImporting(false);
     }
   }
+
+  async function handleConnectGitHub() {
+    setError(null);
+    try {
+      const state = await startDeviceFlow();
+      setGhStep({ kind: "waiting", userCode: state.user_code, verificationUri: state.verification_uri });
+
+      const ac = new AbortController();
+      abortRef.current = ac;
+      setGhStep({ kind: "polling" });
+
+      const token = await pollForToken(state, ac.signal);
+      if (!token) {
+        setGhStep({ kind: "idle" });
+        setError("GitHub authorization timed out or was cancelled.");
+        return;
+      }
+      setGhStep({ kind: "repo_input", token });
+    } catch (err) {
+      setGhStep({ kind: "idle" });
+      setError(err instanceof Error ? err.message : "GitHub authorization failed");
+    }
+  }
+
+  function handleCancelGitHub() {
+    abortRef.current?.abort();
+    setGhStep({ kind: "idle" });
+  }
+
+  async function handleConnectRepo() {
+    if (ghStep.kind !== "repo_input") return;
+    const { token } = ghStep;
+    const nwo = repoInput.trim();
+    if (!nwo.includes("/")) {
+      setError("Enter the repo as owner/repo-name");
+      return;
+    }
+    setError(null);
+    setGhStep({ kind: "syncing" });
+    try {
+      const meta = await getRepoMeta(token, nwo);
+      const pulled = await pullRepo(token, nwo);
+      await setRepo(pulled);
+      await saveSyncMeta({
+        lastPullSha: meta.latestSha,
+        lastSyncedAt: new Date().toISOString(),
+        connectedRepo: nwo,
+        connectedUser: meta.login,
+      });
+      navigate("/plan/household", { replace: true });
+    } catch (err) {
+      setGhStep({ kind: "repo_input", token });
+      setError(err instanceof Error ? err.message : "Failed to connect to repository");
+    }
+  }
+
+  const ghDialogOpen =
+    ghStep.kind === "waiting" ||
+    ghStep.kind === "polling" ||
+    ghStep.kind === "repo_input" ||
+    ghStep.kind === "syncing";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
@@ -148,20 +228,109 @@ export default function OnboardingRoute() {
             </CardContent>
           </Card>
 
-          <Card className="opacity-60">
+          <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <GitBranch className="h-4 w-4" />
                 Connect to GitHub
-                <span className="ml-auto text-xs font-normal text-muted-foreground">Coming in Sprint 2</span>
               </CardTitle>
               <CardDescription>
                 Sync your plan to a private GitHub repository.
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <Button variant="outline" className="w-full" onClick={handleConnectGitHub}>
+                <GitBranch className="mr-2 h-4 w-4" />
+                Connect to GitHub
+              </Button>
+            </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* GitHub Device Flow Dialog */}
+      <Dialog open={ghDialogOpen} onOpenChange={(open) => { if (!open) handleCancelGitHub(); }}>
+        <DialogContent className="bg-white">
+          {(ghStep.kind === "waiting" || ghStep.kind === "polling") && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Authorize with GitHub</DialogTitle>
+                <DialogDescription>
+                  Visit the link below and enter the code to authorize.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="rounded-lg border bg-muted/40 p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Your one-time code</p>
+                  <p className="text-2xl font-mono font-bold tracking-widest">
+                    {ghStep.kind === "waiting" ? ghStep.userCode : ""}
+                  </p>
+                </div>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() =>
+                    window.open(
+                      ghStep.kind === "waiting" ? ghStep.verificationUri : "https://github.com/login/device",
+                      "_blank",
+                    )
+                  }
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open github.com/login/device
+                </Button>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Waiting for authorization…
+                </div>
+                <Button variant="ghost" className="w-full" onClick={handleCancelGitHub}>
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {ghStep.kind === "repo_input" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Connected to GitHub</DialogTitle>
+                <DialogDescription>
+                  Enter the repository that holds your plan (e.g. <code>yourname/family-plan</code>).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-1">
+                  <Label htmlFor="repo-input">Repository</Label>
+                  <Input
+                    id="repo-input"
+                    placeholder="owner/repo-name"
+                    value={repoInput}
+                    onChange={(e) => setRepoInput(e.target.value)}
+                  />
+                </div>
+                <Button className="w-full" onClick={handleConnectRepo} disabled={!repoInput.trim()}>
+                  Load plan from GitHub
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={handleCancelGitHub}>
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {ghStep.kind === "syncing" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Loading your plan…</DialogTitle>
+              </DialogHeader>
+              <div className="flex items-center gap-3 py-4">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm text-muted-foreground">Fetching plan from GitHub…</span>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
