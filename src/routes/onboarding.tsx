@@ -74,7 +74,7 @@ export default function OnboardingRoute() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
       <div className="w-full max-w-lg space-y-6">
         <div className="text-center space-y-2">
           <div className="flex justify-center">
@@ -112,7 +112,7 @@ export default function OnboardingRoute() {
                 />
               </div>
               <Button
-                className="w-full bg-green-700 hover:bg-green-800"
+                className="w-full bg-green-700 hover:bg-green-800 text-white"
                 onClick={handleStartFresh}
                 disabled={!initialized}
               >
@@ -162,6 +162,6 @@ export default function OnboardingRoute() {
           </Card>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

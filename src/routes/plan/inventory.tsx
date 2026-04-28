@@ -127,7 +127,7 @@ function GoBagChecklist() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">Add item</Button>
+              <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white">Add item</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -262,7 +262,7 @@ function Medications() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">{editingId ? "Save" : "Add"}</Button>
+              <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white">{editingId ? "Save" : "Add"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

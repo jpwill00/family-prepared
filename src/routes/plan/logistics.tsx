@@ -142,7 +142,7 @@ function SafeRooms() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">
+              <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white">
                 {editingId ? "Save" : "Add"}
               </Button>
             </DialogFooter>
@@ -288,7 +288,7 @@ function MeetingPoints() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">
+              <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white">
                 {editingId ? "Save" : "Add"}
               </Button>
             </DialogFooter>
@@ -452,7 +452,7 @@ function EvacuationRoutes() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">
+              <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white">
                 {editingId ? "Save" : "Add"}
               </Button>
             </DialogFooter>

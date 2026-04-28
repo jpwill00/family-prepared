@@ -103,7 +103,7 @@ export default function HouseholdRoute() {
         </div>
         <Button
           size="sm"
-          className="bg-green-700 hover:bg-green-800"
+          className="bg-green-700 hover:bg-green-800 text-white"
           onClick={openAdd}
         >
           <Plus className="h-4 w-4 mr-1" />
@@ -241,7 +241,7 @@ export default function HouseholdRoute() {
               >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">
+              <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white">
                 {editingId ? "Save changes" : "Add member"}
               </Button>
             </DialogFooter>
