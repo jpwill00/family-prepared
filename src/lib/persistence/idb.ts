@@ -6,6 +6,8 @@ const REPO_KEY = "repo";
 const FILES_KEY = "content_files";
 const TOKEN_KEY = "github_token";
 const SYNC_META_KEY = "github_sync_meta";
+const SALT_KEY = "crypto_salt";
+const ENCRYPTED_FIELDS_KEY = "encrypted_fields";
 
 // ── Structured repo (plan data) ───────────────────────────────────────────────
 
@@ -88,4 +90,41 @@ export async function loadSyncMeta(): Promise<SyncMeta | null> {
 
 export async function clearSyncMeta(): Promise<void> {
   await del(SYNC_META_KEY);
+}
+
+// ── Crypto salt + encrypted field blobs ───────────────────────────────────────
+
+export interface EncryptedField {
+  iv: string;
+  ciphertext: string;
+}
+
+export async function saveSalt(salt: Uint8Array): Promise<void> {
+  await set(SALT_KEY, Array.from(salt));
+}
+
+export async function loadSalt(): Promise<Uint8Array | null> {
+  const stored = await get<number[]>(SALT_KEY);
+  return stored ? new Uint8Array(stored) : null;
+}
+
+export async function saveEncryptedFields(fields: Record<string, EncryptedField>): Promise<void> {
+  await set(ENCRYPTED_FIELDS_KEY, fields);
+}
+
+export async function loadEncryptedFields(): Promise<Record<string, EncryptedField> | null> {
+  return (await get<Record<string, EncryptedField>>(ENCRYPTED_FIELDS_KEY)) ?? null;
+}
+
+export async function clearEncryptedFields(): Promise<void> {
+  await del(ENCRYPTED_FIELDS_KEY);
+}
+
+export async function clearSalt(): Promise<void> {
+  await del(SALT_KEY);
+}
+
+export async function hasEncryptedData(): Promise<boolean> {
+  const fields = await get<Record<string, EncryptedField>>(ENCRYPTED_FIELDS_KEY);
+  return !!fields && Object.keys(fields).length > 0;
 }

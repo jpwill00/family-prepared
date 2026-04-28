@@ -20,6 +20,8 @@ export interface PlanStore {
   initialized: boolean;
   firstRun: boolean;
   rawFiles: Map<string, string>;
+  /** Derived in memory from passphrase — never persisted to IDB. */
+  cryptoKey: CryptoKey | null;
 
   initialize(): Promise<void>;
   setRepo(repo: Repo): Promise<void>;
@@ -27,6 +29,7 @@ export interface PlanStore {
   updateCommunication(communication: Partial<Communication>): Promise<void>;
   updateLogistics(logistics: Partial<Logistics>): Promise<void>;
   updateInventory(inventory: Partial<Inventory>): Promise<void>;
+  setCryptoKey(key: CryptoKey | null): void;
   reset(): Promise<void>;
 
   // Raw content file operations
@@ -41,6 +44,7 @@ export const usePlanStore = create<PlanStore>()((set, get) => ({
   initialized: false,
   firstRun: false,
   rawFiles: new Map(),
+  cryptoKey: null,
 
   async initialize() {
     if (get().initialized) return;
@@ -89,9 +93,13 @@ export const usePlanStore = create<PlanStore>()((set, get) => ({
     await get().setRepo(updated);
   },
 
+  setCryptoKey(key) {
+    set({ cryptoKey: key });
+  },
+
   async reset() {
     await Promise.all([clearIdb(), clearFiles()]);
-    set({ repo: emptyRepo(), rawFiles: new Map() });
+    set({ repo: emptyRepo(), rawFiles: new Map(), cryptoKey: null });
   },
 
   getFile(path) {
