@@ -283,7 +283,7 @@ export default function CommunicationRoute() {
               >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">
+              <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white">
                 {editingContactId ? "Save changes" : "Add contact"}
               </Button>
             </DialogFooter>
