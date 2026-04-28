@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/shared/AppShell";
+import { LockScreen } from "@/components/shared/LockScreen";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { InstallPrompt } from "@/components/shared/InstallPrompt";
 import { usePlanStore } from "@/lib/store/plan";
@@ -41,6 +42,7 @@ function AppInitializer() {
 export default function App() {
   return (
     <BrowserRouter>
+      <LockScreen>
       <OfflineBanner />
       <InstallPrompt />
       <AppInitializer />
@@ -64,6 +66,7 @@ export default function App() {
           </Route>
         </Routes>
       </Suspense>
+      </LockScreen>
     </BrowserRouter>
   );
 }

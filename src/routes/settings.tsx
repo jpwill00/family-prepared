@@ -1,9 +1,19 @@
 import { useState, useEffect } from "react";
 import { usePlanStore } from "@/lib/store/plan";
 import { exportRepoAsZip } from "@/lib/persistence/zip";
-import { loadSyncMeta, clearSyncMeta, loadToken } from "@/lib/persistence/idb";
+import {
+  loadSyncMeta,
+  clearSyncMeta,
+  loadToken,
+  hasEncryptedData,
+  loadEncryptedFields,
+  saveEncryptedFields,
+  clearEncryptedFields,
+  clearSalt,
+} from "@/lib/persistence/idb";
 import { revokeToken, getStoredToken } from "@/lib/github/auth";
 import { pushRepo, pullRepo, getRepoMeta } from "@/lib/github/sync";
+import { deriveKey, encrypt, decrypt, getOrCreateSalt } from "@/lib/crypto/secure";
 import type { SyncMeta } from "@/lib/persistence/idb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +29,16 @@ import {
   Unlink,
   CheckCircle2,
   Loader2,
+  Lock,
+  KeyRound,
 } from "lucide-react";
 
 export default function SettingsRoute() {
   const repo = usePlanStore((s) => s.repo);
   const setRepo = usePlanStore((s) => s.setRepo);
   const reset = usePlanStore((s) => s.reset);
+  const cryptoKey = usePlanStore((s) => s.cryptoKey);
+  const setCryptoKey = usePlanStore((s) => s.setCryptoKey);
 
   const [planName, setPlanName] = useState(repo?.plan_yaml.name ?? "");
   const [saving, setSaving] = useState(false);
@@ -40,11 +54,25 @@ export default function SettingsRoute() {
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
+  // Passphrase / encryption state
+  const [hasEncryption, setHasEncryption] = useState(false);
+  const [passphraseMode, setPassphraseMode] = useState<"idle" | "set" | "change">("idle");
+  const [newPassphrase, setNewPassphrase] = useState("");
+  const [confirmPassphrase, setConfirmPassphrase] = useState("");
+  const [passphraseError, setPassphraseError] = useState<string | null>(null);
+  const [passphraseSaving, setPassphraseSaving] = useState(false);
+  const [confirmResetEncryption, setConfirmResetEncryption] = useState(false);
+
   useEffect(() => {
     async function loadGitHubState() {
-      const [token, meta] = await Promise.all([loadToken(), loadSyncMeta()]);
+      const [token, meta, encryptionExists] = await Promise.all([
+        loadToken(),
+        loadSyncMeta(),
+        hasEncryptedData(),
+      ]);
       setConnected(!!token);
       setSyncMeta(meta);
+      setHasEncryption(encryptionExists);
     }
     void loadGitHubState();
   }, []);
@@ -166,6 +194,55 @@ export default function SettingsRoute() {
     setConfirmDisconnect(false);
   }
 
+  async function handleSetPassphrase() {
+    if (newPassphrase !== confirmPassphrase) {
+      setPassphraseError("Passphrases do not match.");
+      return;
+    }
+    if (newPassphrase.length < 8) {
+      setPassphraseError("Passphrase must be at least 8 characters.");
+      return;
+    }
+    setPassphraseError(null);
+    setPassphraseSaving(true);
+    try {
+      const salt = await getOrCreateSalt();
+      const key = await deriveKey(newPassphrase, salt);
+
+      // Re-encrypt all currently stored encrypted fields with new key,
+      // or if changing passphrase, re-encrypt existing plaintext sentinels.
+      if (passphraseMode === "change" && cryptoKey) {
+        const existing = await loadEncryptedFields();
+        if (existing) {
+          const reencrypted: Record<string, { iv: string; ciphertext: string }> = {};
+          for (const [fieldId, blob] of Object.entries(existing)) {
+            const plain = await decrypt(cryptoKey, blob.iv, blob.ciphertext);
+            reencrypted[fieldId] = await encrypt(key, plain);
+          }
+          await saveEncryptedFields(reencrypted);
+        }
+      }
+
+      setCryptoKey(key);
+      setHasEncryption(true);
+      setNewPassphrase("");
+      setConfirmPassphrase("");
+      setPassphraseMode("idle");
+    } catch (err) {
+      setPassphraseError(err instanceof Error ? err.message : "Failed to set passphrase");
+    } finally {
+      setPassphraseSaving(false);
+    }
+  }
+
+  async function handleResetEncryption() {
+    await clearEncryptedFields();
+    await clearSalt();
+    setCryptoKey(null);
+    setHasEncryption(false);
+    setConfirmResetEncryption(false);
+  }
+
   const lastSynced = syncMeta?.lastSyncedAt
     ? new Date(syncMeta.lastSyncedAt).toLocaleString()
     : null;
@@ -275,6 +352,115 @@ export default function SettingsRoute() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-base font-semibold border-b pb-2">Data protection</h2>
+          <p className="text-sm text-muted-foreground">
+            Protect sensitive fields (medical info, medications, contact numbers) with a passphrase.
+            The key is derived in memory only — never stored.
+          </p>
+
+          {passphraseMode === "idle" ? (
+            <div className="flex gap-2 flex-wrap">
+              {!hasEncryption ? (
+                <Button variant="outline" size="sm" onClick={() => setPassphraseMode("set")}>
+                  <Lock className="mr-2 h-4 w-4" />
+                  Set passphrase
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setPassphraseMode("change")}>
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    Change passphrase
+                  </Button>
+                  {!confirmResetEncryption ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => setConfirmResetEncryption(true)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Reset encryption
+                    </Button>
+                  ) : (
+                    <div className="rounded-md border border-destructive p-3 space-y-2 text-sm w-full">
+                      <p className="font-medium text-destructive">Reset encryption?</p>
+                      <p className="text-muted-foreground">
+                        All encrypted field data will be permanently deleted. The fields will revert to plaintext.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setConfirmResetEncryption(false)}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={handleResetEncryption}>
+                          Yes, reset encryption
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3 rounded-md border p-4">
+              <p className="text-sm font-medium">
+                {passphraseMode === "set" ? "Set a new passphrase" : "Change passphrase"}
+              </p>
+              {passphraseError && (
+                <div className="flex items-center gap-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {passphraseError}
+                </div>
+              )}
+              <div className="space-y-1">
+                <Label htmlFor="new-passphrase">New passphrase</Label>
+                <Input
+                  id="new-passphrase"
+                  type="password"
+                  value={newPassphrase}
+                  onChange={(e) => setNewPassphrase(e.target.value)}
+                  placeholder="At least 8 characters"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="confirm-passphrase">Confirm passphrase</Label>
+                <Input
+                  id="confirm-passphrase"
+                  type="password"
+                  value={confirmPassphrase}
+                  onChange={(e) => setConfirmPassphrase(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSetPassphrase()}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setPassphraseMode("idle");
+                    setNewPassphrase("");
+                    setConfirmPassphrase("");
+                    setPassphraseError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSetPassphrase}
+                  disabled={passphraseSaving || !newPassphrase}
+                >
+                  {passphraseSaving ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
+                  ) : (
+                    "Save passphrase"
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </section>

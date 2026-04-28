@@ -7,7 +7,7 @@ export const HouseholdMemberSchema = z.object({
   name: z.string().min(1),
   birth_date: z.string().optional(),
   dietary: z.string().optional(),
-  medical: z.string().optional(),
+  medical: z.string().optional(), // secure: true
   photo_path: z.string().optional(),
 });
 
@@ -22,7 +22,7 @@ export const ContactSchema = z.object({
   name: z.string().min(1),
   role: z.string().min(1),
   channel: z.string().min(1),
-  value: z.string().min(1),
+  value: z.string().min(1), // secure: true
   notes: z.string().optional(),
 });
 
@@ -75,14 +75,15 @@ export const ChecklistItemSchema = z.object({
   category: z.string().optional(),
 });
 
+// All Medication fields except id are secure: true
 export const MedicationSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1),
-  dose: z.string().optional(),
-  frequency: z.string().optional(),
-  expiration: z.string().optional(),
-  who: z.string().optional(),
-  notes: z.string().optional(),
+  name: z.string().min(1), // secure: true
+  dose: z.string().optional(), // secure: true
+  frequency: z.string().optional(), // secure: true
+  expiration: z.string().optional(), // secure: true
+  who: z.string().optional(), // secure: true
+  notes: z.string().optional(), // secure: true
 });
 
 export const HomeSuppliesSchema = z.object({
