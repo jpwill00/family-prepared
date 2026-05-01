@@ -14,6 +14,7 @@ import {
 import { revokeToken, getStoredToken } from "@/lib/github/auth";
 import { pushRepo, pullRepo, getRepoMeta } from "@/lib/github/sync";
 import { deriveKey, encrypt, decrypt, getOrCreateSalt } from "@/lib/crypto/secure";
+import { fetchSeedLibrary } from "@/lib/library/seed";
 import type { SyncMeta } from "@/lib/persistence/idb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,8 @@ import {
   Loader2,
   Lock,
   KeyRound,
+  RefreshCw,
+  BookOpen,
 } from "lucide-react";
 
 export default function SettingsRoute() {
@@ -53,6 +56,11 @@ export default function SettingsRoute() {
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+
+  // Library refresh state
+  const [refreshingLibrary, setRefreshingLibrary] = useState(false);
+  const [libraryRefreshResult, setLibraryRefreshResult] = useState<"success" | "error" | null>(null);
+  const [confirmLibraryOverwrite, setConfirmLibraryOverwrite] = useState(false);
 
   // Passphrase / encryption state
   const [hasEncryption, setHasEncryption] = useState(false);
@@ -192,6 +200,32 @@ export default function SettingsRoute() {
     setConnected(false);
     setSyncMeta(null);
     setConfirmDisconnect(false);
+  }
+
+  async function handleRefreshLibrary() {
+    setRefreshingLibrary(true);
+    setLibraryRefreshResult(null);
+    try {
+      const libraryFiles = await fetchSeedLibrary();
+      if (!libraryFiles || libraryFiles.size === 0) {
+        setLibraryRefreshResult("error");
+        return;
+      }
+      const { mergeFiles } = await import("@/lib/persistence/idb");
+      await mergeFiles(libraryFiles);
+      usePlanStore.setState((s) => {
+        const next = new Map(s.rawFiles);
+        for (const [k, v] of libraryFiles) next.set(k, v);
+        return { rawFiles: next };
+      });
+      setLibraryRefreshResult("success");
+      setConfirmLibraryOverwrite(false);
+      setTimeout(() => setLibraryRefreshResult(null), 4000);
+    } catch {
+      setLibraryRefreshResult("error");
+    } finally {
+      setRefreshingLibrary(false);
+    }
   }
 
   async function handleSetPassphrase() {
@@ -458,6 +492,57 @@ export default function SettingsRoute() {
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
                   ) : (
                     "Save passphrase"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-base font-semibold border-b pb-2">Reference library</h2>
+          <p className="text-sm text-muted-foreground">
+            Re-fetch the latest reference library articles from the template repository.
+            Your custom content is never affected.
+          </p>
+          {libraryRefreshResult === "success" && (
+            <div className="flex items-center gap-2 text-sm text-green-700">
+              <CheckCircle2 className="h-4 w-4" />
+              Library updated successfully.
+            </div>
+          )}
+          {libraryRefreshResult === "error" && (
+            <div className="flex items-center gap-2 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              Could not fetch library. Check your connection and try again.
+            </div>
+          )}
+          {!confirmLibraryOverwrite ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmLibraryOverwrite(true)}
+              disabled={refreshingLibrary}
+            >
+              <BookOpen className="mr-2 h-4 w-4" />
+              Update reference library
+            </Button>
+          ) : (
+            <div className="rounded-md border p-3 space-y-2 text-sm">
+              <p className="font-medium">Overwrite library/ content?</p>
+              <p className="text-muted-foreground">
+                This replaces all files in your reference library with the latest versions.
+                Custom content in <code>custom/</code> is not affected.
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setConfirmLibraryOverwrite(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleRefreshLibrary} disabled={refreshingLibrary}>
+                  {refreshingLibrary ? (
+                    <><RefreshCw className="mr-2 h-4 w-4 animate-spin" />Updating…</>
+                  ) : (
+                    "Yes, update library"
                   )}
                 </Button>
               </div>
