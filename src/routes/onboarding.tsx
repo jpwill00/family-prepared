@@ -6,7 +6,7 @@ import { importRepoFromZip } from "@/lib/persistence/zip";
 import { mergeFiles, saveSyncMeta } from "@/lib/persistence/idb";
 import { startDeviceFlow, pollForToken } from "@/lib/github/auth";
 import { getRepoMeta, pullRepo } from "@/lib/github/sync";
-import JSZip from "jszip";
+import { fetchSeedLibrary } from "@/lib/library/seed";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,28 +47,16 @@ export default function OnboardingRoute() {
       ...base,
       plan_yaml: { ...base.plan_yaml, name: planName.trim() || "My Family Plan" },
     });
-    // Seed the reference library from the bundled ZIP
+    // Seed the reference library — tries remote release, falls back to bundled
     try {
-      const res = await fetch("/seed-library.zip");
-      if (res.ok) {
-        const blob = await res.blob();
-        const zip = await JSZip.loadAsync(blob);
-        const libraryFiles = new Map<string, string>();
-        await Promise.all(
-          Object.entries(zip.files)
-            .filter(([path, entry]) => path.startsWith("library/") && !entry.dir)
-            .map(async ([path, entry]) => {
-              libraryFiles.set(path, await entry.async("string"));
-            }),
-        );
-        if (libraryFiles.size > 0) {
-          await mergeFiles(libraryFiles);
-          usePlanStore.setState((s) => {
-            const next = new Map(s.rawFiles);
-            for (const [k, v] of libraryFiles) next.set(k, v);
-            return { rawFiles: next };
-          });
-        }
+      const libraryFiles = await fetchSeedLibrary();
+      if (libraryFiles && libraryFiles.size > 0) {
+        await mergeFiles(libraryFiles);
+        usePlanStore.setState((s) => {
+          const next = new Map(s.rawFiles);
+          for (const [k, v] of libraryFiles) next.set(k, v);
+          return { rawFiles: next };
+        });
       }
     } catch {
       // Seed library is best-effort — don't block onboarding if it fails
