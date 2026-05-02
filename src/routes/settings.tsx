@@ -11,8 +11,9 @@ import {
   clearEncryptedFields,
   clearSalt,
 } from "@/lib/persistence/idb";
-import { revokeToken, getStoredToken } from "@/lib/github/auth";
+import { revokeToken, getStoredToken, startDeviceFlow, pollForToken } from "@/lib/github/auth";
 import { pushRepo, pullRepo, getRepoMeta } from "@/lib/github/sync";
+import { saveSyncMeta } from "@/lib/persistence/idb";
 import { deriveKey, encrypt, decrypt, getOrCreateSalt } from "@/lib/crypto/secure";
 import { fetchSeedLibrary } from "@/lib/library/seed";
 import type { SyncMeta } from "@/lib/persistence/idb";
@@ -24,7 +25,7 @@ import {
   Download,
   Trash2,
   AlertCircle,
-  GitBranch,
+  Cloud,
   UploadCloud,
   DownloadCloud,
   Unlink,
@@ -34,6 +35,7 @@ import {
   KeyRound,
   RefreshCw,
   BookOpen,
+  ExternalLink,
 } from "lucide-react";
 
 export default function SettingsRoute() {
@@ -56,6 +58,16 @@ export default function SettingsRoute() {
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+
+  // Device Flow state for "Set up online backup" initiated from Settings
+  type SetupStep =
+    | { kind: "idle" }
+    | { kind: "waiting"; userCode: string; verificationUri: string }
+    | { kind: "polling" }
+    | { kind: "repo_input"; token: string }
+    | { kind: "syncing" };
+  const [setupStep, setSetupStep] = useState<SetupStep>({ kind: "idle" });
+  const [setupRepoInput, setSetupRepoInput] = useState("");
 
   // Library refresh state
   const [refreshingLibrary, setRefreshingLibrary] = useState(false);
@@ -156,7 +168,7 @@ export default function SettingsRoute() {
         lastPullSha: sha,
         lastSyncedAt: new Date().toISOString(),
       };
-      await import("@/lib/persistence/idb").then((m) => m.saveSyncMeta(updated));
+      await saveSyncMeta(updated);
       setSyncMeta(updated);
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 3000);
@@ -183,7 +195,7 @@ export default function SettingsRoute() {
         lastPullSha: meta.latestSha,
         lastSyncedAt: new Date().toISOString(),
       };
-      await import("@/lib/persistence/idb").then((m) => m.saveSyncMeta(updated));
+      await saveSyncMeta(updated);
       setSyncMeta(updated);
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 3000);
@@ -200,6 +212,62 @@ export default function SettingsRoute() {
     setConnected(false);
     setSyncMeta(null);
     setConfirmDisconnect(false);
+  }
+
+  async function handleSetupBackup() {
+    setError(null);
+    try {
+      const state = await startDeviceFlow();
+      setSetupStep({ kind: "waiting", userCode: state.user_code, verificationUri: state.verification_uri });
+      const ac = new AbortController();
+      setSetupStep({ kind: "polling" });
+      const token = await pollForToken(state, ac.signal);
+      if (!token) {
+        setSetupStep({ kind: "idle" });
+        setError("Authorization timed out or was cancelled.");
+        return;
+      }
+      setSetupStep({ kind: "repo_input", token });
+    } catch (err) {
+      setSetupStep({ kind: "idle" });
+      setError(err instanceof Error ? err.message : "Authorization failed");
+    }
+  }
+
+  function handleCancelSetup() {
+    setSetupStep({ kind: "idle" });
+    setSetupRepoInput("");
+  }
+
+  async function handleConnectSetupRepo() {
+    if (setupStep.kind !== "repo_input") return;
+    const { token } = setupStep;
+    const nwo = setupRepoInput.trim();
+    if (!nwo.includes("/")) {
+      setError("Enter the repo as owner/repo-name");
+      return;
+    }
+    setError(null);
+    setSetupStep({ kind: "syncing" });
+    try {
+      const meta = await getRepoMeta(token, nwo);
+      const pulled = await pullRepo(token, nwo);
+      await setRepo(pulled);
+      const newMeta: SyncMeta = {
+        lastPullSha: meta.latestSha,
+        lastSyncedAt: new Date().toISOString(),
+        connectedRepo: nwo,
+        connectedUser: meta.login,
+      };
+      await saveSyncMeta(newMeta);
+      setSyncMeta(newMeta);
+      setConnected(true);
+      setSetupStep({ kind: "idle" });
+      setSetupRepoInput("");
+    } catch (err) {
+      setSetupStep({ kind: "repo_input", token });
+      setError(err instanceof Error ? err.message : "Failed to connect to backup");
+    }
   }
 
   async function handleRefreshLibrary() {
@@ -315,16 +383,95 @@ export default function SettingsRoute() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-base font-semibold border-b pb-2">GitHub sync</h2>
+          <h2 className="text-base font-semibold border-b pb-2">Online backup (optional)</h2>
           {!connected ? (
-            <p className="text-sm text-muted-foreground">
-              Not connected. Use <strong>Connect to GitHub</strong> on the onboarding screen to link a repository.
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Back up your plan to a private cloud repository so you can restore it on any device.
+              </p>
+              {setupStep.kind === "idle" && (
+                <Button
+                  className="bg-green-700 hover:bg-green-800 text-white"
+                  size="sm"
+                  onClick={handleSetupBackup}
+                >
+                  <Cloud className="mr-2 h-4 w-4" />
+                  Set up online backup
+                </Button>
+              )}
+              {(setupStep.kind === "waiting" || setupStep.kind === "polling") && (
+                <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+                  <p className="text-sm font-medium">Authorize backup access</p>
+                  <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Your one-time code</p>
+                    <p className="text-xl font-mono font-bold tracking-widest">
+                      {setupStep.kind === "waiting" ? setupStep.userCode : ""}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() =>
+                      window.open(
+                        setupStep.kind === "waiting" ? setupStep.verificationUri : "https://github.com/login/device",
+                        "_blank",
+                      )
+                    }
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open github.com/login/device
+                  </Button>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Waiting for authorization…
+                  </div>
+                  <Button variant="ghost" size="sm" className="w-full" onClick={handleCancelSetup}>
+                    Cancel
+                  </Button>
+                </div>
+              )}
+              {setupStep.kind === "repo_input" && (
+                <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+                  <p className="text-sm font-medium">Which backup would you like to load?</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enter the repository name that holds your plan (e.g. <code>yourname/family-plan</code>).
+                  </p>
+                  <div className="space-y-1">
+                    <Label htmlFor="settings-repo-input">Cloud backup name</Label>
+                    <input
+                      id="settings-repo-input"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                      placeholder="owner/repo-name"
+                      value={setupRepoInput}
+                      onChange={(e) => setSetupRepoInput(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={handleConnectSetupRepo}
+                    disabled={!setupRepoInput.trim()}
+                  >
+                    Load plan from cloud backup
+                  </Button>
+                  <Button variant="ghost" size="sm" className="w-full" onClick={handleCancelSetup}>
+                    Cancel
+                  </Button>
+                </div>
+              )}
+              {setupStep.kind === "syncing" && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading plan from cloud backup…
+                </div>
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               <div className="rounded-md border bg-muted/30 px-4 py-3 text-sm space-y-1">
                 <div className="flex items-center gap-2 font-medium">
-                  <GitBranch className="h-4 w-4" />
+                  <Cloud className="h-4 w-4" />
                   {syncMeta?.connectedRepo ?? "Connected"}
                   {syncMeta?.connectedUser && (
                     <span className="text-muted-foreground font-normal">({syncMeta.connectedUser})</span>
@@ -349,7 +496,7 @@ export default function SettingsRoute() {
                   disabled={syncing || !repo}
                 >
                   {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                  Push to GitHub
+                  Save to cloud now
                 </Button>
                 <Button
                   variant="outline"
@@ -358,7 +505,7 @@ export default function SettingsRoute() {
                   disabled={syncing}
                 >
                   {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                  Pull from GitHub
+                  Load latest from cloud
                 </Button>
               </div>
 
@@ -370,18 +517,18 @@ export default function SettingsRoute() {
                   onClick={() => setConfirmDisconnect(true)}
                 >
                   <Unlink className="mr-2 h-4 w-4" />
-                  Disconnect
+                  Turn off online backup
                 </Button>
               ) : (
                 <div className="rounded-md border border-destructive p-3 space-y-2 text-sm">
-                  <p className="font-medium text-destructive">Disconnect from GitHub?</p>
+                  <p className="font-medium text-destructive">Turn off online backup?</p>
                   <p className="text-muted-foreground">Your local plan data is kept. You can reconnect anytime.</p>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => setConfirmDisconnect(false)}>
                       Cancel
                     </Button>
                     <Button size="sm" variant="destructive" onClick={handleDisconnect}>
-                      Disconnect
+                      Turn off
                     </Button>
                   </div>
                 </div>
