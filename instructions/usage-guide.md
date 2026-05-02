@@ -2,38 +2,63 @@
 
 ## 1. Creating Your Personal Family Plan
 
-The app stores everything on your device — no account required. Your plan lives in your browser's local storage and works fully offline.
+The app stores everything on your device — no account required. Your plan lives in your browser's IndexedDB and works fully offline.
 
 ### Option A — Use the deployed app
 
-Open [https://jpwill00.github.io/family-prepared](https://jpwill00.github.io/family-prepared) in any browser. Click **Create plan** to begin. Your data lives in your browser's IndexedDB.
+Open [https://jpwill00.github.io/family-prepared](https://jpwill00.github.io/family-prepared) in any browser. Click **Create plan** to begin.
 
 ### Option B — Run locally
 
 ```bash
-git checkout main
+git clone https://github.com/jpwill00/family-prepared
+cd family-prepared
+pnpm install
 pnpm dev
 # Open http://localhost:5173
 ```
 
 Plan data is isolated in the browser — it does not touch the code repo.
 
-### Enabling cloud backup (optional)
+### Protecting sensitive fields (optional)
 
-To back up your plan and access it across devices:
+Medical notes and other sensitive fields can be encrypted on your device with a passphrase.
 
-1. In the app → **Settings → Online backup (optional)** → click **Set up online backup**.
-2. Complete the one-time authorization flow (no password needed — uses a temporary code).
-3. Enter the name of your private backup repository (e.g. `yourname/family-plan`).
-4. The app pulls your plan from that repository.
-
-To save changes back to the cloud, use **Save to cloud now**. To load the latest version, use **Load latest from cloud**.
-
-Your backup repository and the app code repository are completely separate.
+1. In the app → **Settings → Passphrase encryption** → **Set passphrase**
+2. You'll be prompted once when you first enter a sensitive field if no passphrase is set yet.
 
 ---
 
-## 2. Building Your Own Instance
+## 2. Enabling Cloud Backup (Optional)
+
+To back up your plan and access it across devices:
+
+1. In the app → **Settings → Online backup (optional)** → click **Set up online backup**
+2. Complete the one-time authorization flow (no password needed — uses a temporary code shown on screen)
+3. The app suggests a backup repository name (e.g. `family-prepared-yourname`) and creates a **private** repository on your GitHub account automatically
+4. Your current plan is pushed to the new repository immediately
+
+To save changes back to the cloud: **Save to cloud now**. To load the latest version: **Load latest from cloud**.
+
+> Your backup repository and the app code repository are completely separate. The backup repo contains only your plan data.
+
+### Already have a backup repository?
+
+If you previously created a backup or want to connect to a shared family repo, click **I already have a backup repository** after the authorization step and enter the repository name (e.g. `yourname/family-prepared-yourname`).
+
+---
+
+## 3. Sharing Your Plan with Family
+
+See [sharing-with-family.md](sharing-with-family.md) for step-by-step instructions covering:
+
+- **ZIP file** — easiest; no accounts needed; works offline
+- **Shared GitHub repository** — live sync across multiple family members
+- **PDF export** — for printing and physical go-bags
+
+---
+
+## 4. Building Your Own Instance
 
 For someone who wants their own hosted copy of the app:
 
@@ -63,37 +88,17 @@ Enable Pages in your repo: **Settings → Pages → Source: GitHub Actions**. Pu
 
 ---
 
-## 3. Sharing and Inviting Users
-
-### Share the app
-
-Send people your GitHub Pages URL. It is a public PWA — anyone can use it with their own data, no account required.
-
-### Share a plan (one-time export)
-
-1. **Settings → Export as ZIP** → send the `.zip` file.
-2. Recipient opens the app → **Restore from a saved file** → selects the ZIP.
-
-### Family sharing (multi-user, live sync)
-
-1. One person owns a private backup repository (e.g. `smith-family/emergency-plan`).
-2. Add family members as collaborators on that repository in GitHub Settings.
-3. Each person opens the app → **Settings → Online backup (optional)** → **Set up online backup** → enters the shared repository name.
-4. Everyone reads and writes to the same repository; last save wins.
-
----
-
-## 4. Contributing to the Core Repo
+## 5. Contributing to the Core Repo
 
 ### Branch and PR workflow
 
 ```bash
 # Always branch from main
-git checkout main && git pull
+git checkout main && git pull origin main
 git checkout -b feat/your-feature-name
 
 # Make changes, verify
-pnpm test --run && pnpm lint && pnpm typecheck
+pnpm test --run && pnpm lint && pnpm typecheck && pnpm build
 
 # Open a PR — CI auto-merges when all checks pass
 gh pr create --base main
@@ -112,5 +117,5 @@ Write an ADR in `docs/adrs/` for anything that changes the architecture: new con
 | Community pack registry | `VITE_REGISTRY_URL` wired but no registry exists yet |
 | Conflict resolution UI | Push/pull is currently last-write-wins |
 | Playwright E2E tests | Framework installed; no tests written |
-| Passphrase-protected ZIP export | Export currently unencrypted |
+| Passphrase-protected ZIP export | ZIP export is currently unencrypted |
 | Multi-language support | English only |

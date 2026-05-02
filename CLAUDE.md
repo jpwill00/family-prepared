@@ -11,13 +11,15 @@
 | Tailwind + shadcn/ui rules | `.claude/shared/tailwind-shadcn-patterns.md` |
 | Persistence (IndexedDB, YAML, ZIP, PDF) | `.claude/shared/persistence-patterns.md` |
 | Zone rules + content registry + pack lifecycle | `.claude/shared/content-and-packs-patterns.md` |
-| GitHub sync (Sprint 2 stub) | `.claude/shared/github-sync-patterns.md` |
+| GitHub sync (Device Flow, Octokit, auto-create repo) | `.claude/shared/github-sync-patterns.md` |
 | PWA + service worker rules | `.claude/shared/pwa-service-worker-rules.md` |
 | PR workflow | `.claude/shared/pr-workflow.md` |
 | Git commit policy | `.claude/shared/git-commit-policy.md` |
 | Output style guidelines | `.claude/shared/output-style-guidelines.md` |
 | Tool use optimization | `.claude/shared/tool-use-optimization.md` |
 | Error handling | `.claude/shared/error-handling.md` |
+| User guide (app usage, cloud backup, sharing) | `instructions/usage-guide.md` |
+| Sharing plan with family (ZIP / GitHub / PDF) | `instructions/sharing-with-family.md` |
 
 ---
 

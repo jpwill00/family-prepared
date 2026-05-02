@@ -18,6 +18,8 @@ import yaml from "js-yaml";            // only lib/persistence/yaml.ts may impor
 
 This boundary exists so zone-write enforcement and serialization logic stay in one place.
 
+---
+
 ## IndexedDB (`lib/persistence/idb.ts`)
 
 - Use `idb-keyval` — simple key/value, no schema migrations needed
@@ -25,16 +27,78 @@ This boundary exists so zone-write enforcement and serialization logic stay in o
 - The Zustand store subscribes to state changes and calls `saveRepo` via the debounced write
 - `loadRepo` is called once at app startup; result hydrates the Zustand store
 
+### Full public API
+
 ```ts
-// idb.ts public API shape
+// ── Plan repo ─────────────────────────────────────────────
 export async function saveRepo(repo: Repo): Promise<void>
 export async function loadRepo(): Promise<Repo | null>
 export async function clearRepo(): Promise<void>
+
+// ── Content files (library/*, custom/* markdown) ──────────
+export async function saveFiles(files: Map<string, string>): Promise<void>
+export async function loadFiles(): Promise<Map<string, string>>
+export async function clearFiles(): Promise<void>
+export async function mergeFiles(updates: Map<string, string>): Promise<void>
+export async function deleteFile(path: string): Promise<void>
+
+// ── GitHub token + sync metadata ──────────────────────────
+export interface SyncMeta {
+  lastPullSha: string;
+  lastSyncedAt: string;
+  connectedRepo: string;    // "owner/repo" format
+  connectedUser: string;    // GitHub login
+}
+
+export async function saveToken(token: string): Promise<void>
+export async function loadToken(): Promise<string | null>
+export async function clearToken(): Promise<void>
+export async function saveSyncMeta(meta: SyncMeta): Promise<void>
+export async function loadSyncMeta(): Promise<SyncMeta | null>
+export async function clearSyncMeta(): Promise<void>
+
+// ── Crypto: salt + encrypted field blobs ──────────────────
+export interface EncryptedField { iv: string; ciphertext: string; }
+
+export async function saveSalt(salt: Uint8Array): Promise<void>
+export async function loadSalt(): Promise<Uint8Array | null>
+export async function saveEncryptedFields(fields: Record<string, EncryptedField>): Promise<void>
+export async function loadEncryptedFields(): Promise<Record<string, EncryptedField> | null>
+export async function clearEncryptedFields(): Promise<void>
+export async function clearSalt(): Promise<void>
+export async function hasEncryptedData(): Promise<boolean>
+
+// ── Passphrase nudge dismiss flag ─────────────────────────
+export async function getCryptoPromptDismissed(): Promise<boolean>
+export async function setCryptoPromptDismissed(): Promise<void>
 ```
+
+### IDB key constants (for reference — do not use outside idb.ts)
+
+| Constant | Key | Purpose |
+|----------|-----|---------|
+| `REPO_KEY` | `"repo"` | Serialized plan YAML files |
+| `FILES_KEY` | `"content_files"` | Raw markdown content files |
+| `TOKEN_KEY` | `"github_token"` | GitHub OAuth token |
+| `SYNC_META_KEY` | `"github_sync_meta"` | Last sync SHA + timestamp |
+| `SALT_KEY` | `"crypto_salt"` | PBKDF2 salt stored as `number[]` |
+| `ENCRYPTED_FIELDS_KEY` | `"encrypted_fields"` | AES-GCM encrypted sensitive fields |
+| `CRYPTO_PROMPT_DISMISSED_KEY` | `"crypto_prompt_dismissed"` | Passphrase nudge one-time dismiss flag |
+
+### Salt storage gotcha
+
+IDB cannot serialize `Uint8Array` directly — store as `number[]`:
+```ts
+await set(SALT_KEY, Array.from(salt));           // save
+const stored = await get<number[]>(SALT_KEY);
+return stored ? new Uint8Array(stored) : null;   // load
+```
+
+---
 
 ## YAML + Markdown (`lib/persistence/yaml.ts`)
 
-Plan files are Markdown with YAML frontmatter, or pure YAML (`.yaml` extension):
+Plan files are pure YAML (`.yaml` extension):
 
 ```ts
 // yaml.ts public API shape
@@ -44,9 +108,11 @@ export function serializeRepo(repo: Repo): Map<string, string>
 
 Rules:
 - `parseRepo` must be **pure** — no side effects, no IndexedDB calls
-- Unknown fields in YAML are preserved (pass-through) — never drop data that the app doesn't understand
+- Unknown fields in YAML are preserved (pass-through) — never drop data the app doesn't understand
 - All Zod schemas must round-trip: `parseRepo(serializeRepo(repo))` ≡ `repo`
-- Missing `_meta.yaml` files in a folder → treat as `content_type: article_collection` (fallback)
+- Missing files in a folder → treat as empty defaults (not an error)
+
+---
 
 ## ZIP Import/Export (`lib/persistence/zip.ts`)
 
@@ -60,6 +126,8 @@ Rules:
 - `importRepoFromZip` validates `plan.yaml` with Zod before returning — throws `RepoValidationError` on failure
 - `exportRepoAsZip` must include ALL four zones, even if empty
 - ZIP entry paths use forward slashes on all platforms
+
+---
 
 ## PDF Export (`lib/persistence/pdf.tsx`)
 
@@ -75,6 +143,8 @@ PDF covers:
 3. Optionally selected `custom/*` areas
 
 The PDF includes a "Printed at" timestamp and a note: "Keep a physical copy in your go-bag."
+
+---
 
 ## Zone Write Enforcement
 
@@ -93,6 +163,8 @@ function assertWritable(path: string): void {
 
 The "Fork to edit" action copies the content to `custom/<area>/` and then opens the editor.
 
+---
+
 ## Test Requirements
 
 Every new schema or serializer needs a round-trip test:
@@ -100,7 +172,7 @@ Every new schema or serializer needs a round-trip test:
 ```ts
 // vitest example
 it("round-trips household member", () => {
-  const member: HouseholdMember = { name: "Alice", birthDate: "1985-06-01", ... };
+  const member: HouseholdMember = { name: "Alice", birth_date: "1985-06-01", ... };
   const files = serializeRepo(makeRepo({ household: { members: [member] } }));
   const parsed = parseRepo(files);
   expect(parsed.plan.household.members[0]).toEqual(member);
