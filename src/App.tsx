@@ -41,7 +41,7 @@ function AppInitializer() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <LockScreen>
       <OfflineBanner />
       <InstallPrompt />
