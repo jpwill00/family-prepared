@@ -2,11 +2,11 @@
 
 ## 1. Creating Your Personal Family Plan
 
-The app is designed so you never touch the code repo for your own plan data. Your plan lives in a separate private GitHub repository (or just in your browser).
+The app stores everything on your device — no account required. Your plan lives in your browser's local storage and works fully offline.
 
 ### Option A — Use the deployed app
 
-Open [https://jpwill00.github.io/family-prepared](https://jpwill00.github.io/family-prepared) in any browser. Click **Start fresh** or **Connect to GitHub** to begin. Your data lives in your browser's IndexedDB.
+Open [https://jpwill00.github.io/family-prepared](https://jpwill00.github.io/family-prepared) in any browser. Click **Create plan** to begin. Your data lives in your browser's IndexedDB.
 
 ### Option B — Run locally
 
@@ -18,15 +18,18 @@ pnpm dev
 
 Plan data is isolated in the browser — it does not touch the code repo.
 
-### Persisting your plan to GitHub
+### Enabling cloud backup (optional)
 
-To sync your plan across devices and browsers:
+To back up your plan and access it across devices:
 
-1. Create a new **private** GitHub repo (e.g. `yourname/family-plan`) — this holds your *data*, not the app code.
-2. In the app → onboarding → **Connect to GitHub** → complete the Device Flow → enter `yourname/family-plan`.
-3. The app pushes your YAML/Markdown plan files to that repo as commits.
+1. In the app → **Settings → Online backup (optional)** → click **Set up online backup**.
+2. Complete the one-time authorization flow (no password needed — uses a temporary code).
+3. Enter the name of your private backup repository (e.g. `yourname/family-plan`).
+4. The app pulls your plan from that repository.
 
-Your plan repo and the app repo are completely separate.
+To save changes back to the cloud, use **Save to cloud now**. To load the latest version, use **Load latest from cloud**.
+
+Your backup repository and the app code repository are completely separate.
 
 ---
 
@@ -69,14 +72,14 @@ Send people your GitHub Pages URL. It is a public PWA — anyone can use it with
 ### Share a plan (one-time export)
 
 1. **Settings → Export as ZIP** → send the `.zip` file.
-2. Recipient opens the app → **Import a backup** → selects the ZIP.
+2. Recipient opens the app → **Restore from a saved file** → selects the ZIP.
 
 ### Family sharing (multi-user, live sync)
 
-1. One person owns a private plan repo (e.g. `smith-family/emergency-plan`).
-2. Add family members as collaborators on that repo in GitHub Settings.
-3. Each person opens the app → **Connect to GitHub** → enters the shared repo name.
-4. Everyone reads and writes to the same repo; last push wins.
+1. One person owns a private backup repository (e.g. `smith-family/emergency-plan`).
+2. Add family members as collaborators on that repository in GitHub Settings.
+3. Each person opens the app → **Settings → Online backup (optional)** → **Set up online backup** → enters the shared repository name.
+4. Everyone reads and writes to the same repository; last save wins.
 
 ---
 
