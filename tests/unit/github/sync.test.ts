@@ -7,6 +7,7 @@ const mockOctokit = {
   repos: {
     get: vi.fn(),
     getBranch: vi.fn(),
+    createForAuthenticatedUser: vi.fn(),
   },
   git: {
     getTree: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock("@octokit/rest", () => ({
   Octokit: vi.fn(() => mockOctokit),
 }));
 
-import { readRepoTree, commitFiles, getRepoMeta, pushRepo, pullRepo } from "@/lib/github/sync";
+import { readRepoTree, commitFiles, getRepoMeta, pushRepo, pullRepo, createPlanRepo } from "@/lib/github/sync";
 
 const TEST_REPO = "testowner/test-family-plan";
 const TOKEN = "gho_test_token";
@@ -169,5 +170,50 @@ describe("serializeRepo / parseRepo round-trip", () => {
     expect(parsed.plan.household).toEqual(EMPTY_REPO.plan.household);
     expect(parsed.plan.communication).toEqual(EMPTY_REPO.plan.communication);
     expect(parsed.plan.inventory).toEqual(EMPTY_REPO.plan.inventory);
+  });
+});
+
+describe("createPlanRepo", () => {
+  const TOKEN = "gho_test";
+  const REPO_NAME = "family-prepared-testuser";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockOctokit.users.getAuthenticated.mockResolvedValue({ data: { login: "testuser" } });
+  });
+
+  it("creates a private repo and returns RepoMeta", async () => {
+    mockOctokit.repos.createForAuthenticatedUser.mockResolvedValue({});
+    mockOctokit.repos.get.mockResolvedValue({ data: { default_branch: "main" } });
+    mockOctokit.repos.getBranch.mockResolvedValue({ data: { commit: { sha: "init-sha" } } });
+
+    const meta = await createPlanRepo(TOKEN, REPO_NAME);
+
+    expect(mockOctokit.repos.createForAuthenticatedUser).toHaveBeenCalledWith(
+      expect.objectContaining({ name: REPO_NAME, private: true, auto_init: true }),
+    );
+    expect(meta.owner).toBe("testuser");
+    expect(meta.repo).toBe(REPO_NAME);
+    expect(meta.defaultBranch).toBe("main");
+    expect(meta.latestSha).toBe("init-sha");
+    expect(meta.login).toBe("testuser");
+  });
+
+  it("throws REPO_EXISTS error with nwo when repo name is already taken (422)", async () => {
+    const conflictErr = Object.assign(new Error("Validation Failed"), { status: 422 });
+    mockOctokit.repos.createForAuthenticatedUser.mockRejectedValue(conflictErr);
+
+    await expect(createPlanRepo(TOKEN, REPO_NAME)).rejects.toThrow(
+      `REPO_EXISTS:testuser/${REPO_NAME}`,
+    );
+  });
+
+  it("throws scope error when GitHub returns 403 on repo creation", async () => {
+    const scopeErr = Object.assign(new Error("Forbidden"), { status: 403 });
+    mockOctokit.repos.createForAuthenticatedUser.mockRejectedValue(scopeErr);
+
+    await expect(createPlanRepo(TOKEN, REPO_NAME)).rejects.toThrow(
+      /permissions we need/,
+    );
   });
 });

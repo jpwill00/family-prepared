@@ -151,3 +151,62 @@ export async function pushRepo(
   const fileArray = Array.from(files.entries()).map(([path, content]) => ({ path, content }));
   return commitFiles(token, nwoRepo, fileArray, message);
 }
+
+/**
+ * Create a new private GitHub repo for the user's plan data.
+ * - Uses auto_init so the repo has an initial commit (required for subsequent pushes).
+ * - Throws a descriptive error if the name is already taken (422) or scope is missing (403).
+ * - Returns RepoMeta in the same shape as getRepoMeta.
+ */
+export async function createPlanRepo(token: string, name: string): Promise<RepoMeta> {
+  const octokit = new Octokit({ auth: token });
+
+  let login: string;
+  try {
+    const userRes = await octokit.users.getAuthenticated();
+    login = userRes.data.login;
+  } catch {
+    throw new Error("GitHub didn't grant the permissions we need; please re-authorize.");
+  }
+
+  try {
+    await octokit.repos.createForAuthenticatedUser({
+      name,
+      private: true,
+      auto_init: true,
+      description: "Family Prepared — emergency plan data",
+    });
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status;
+    if (status === 422) {
+      throw new Error(`REPO_EXISTS:${login}/${name}`, { cause: err });
+    }
+    if (status === 403) {
+      throw new Error("GitHub didn't grant the permissions we need; please re-authorize.", { cause: err });
+    }
+    throw err;
+  }
+
+  // Get the newly created repo's metadata
+  const repoRes = await octokit.repos.get({ owner: login, repo: name });
+  const branch = repoRes.data.default_branch;
+  const branchRes = await octokit.repos.getBranch({ owner: login, repo: name, branch });
+
+  return {
+    owner: login,
+    repo: name,
+    defaultBranch: branch,
+    latestSha: branchRes.data.commit.sha,
+    login,
+  };
+}
+
+/**
+ * Derive the default suggested backup repo name for a user.
+ * Returns `family-prepared-{username}`.
+ */
+export async function getSuggestedRepoName(token: string): Promise<string> {
+  const octokit = new Octokit({ auth: token });
+  const userRes = await octokit.users.getAuthenticated();
+  return `family-prepared-${userRes.data.login}`;
+}
