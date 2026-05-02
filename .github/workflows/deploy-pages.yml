@@ -40,6 +40,7 @@ jobs:
         run: pnpm build
         env:
           VITE_GITHUB_CLIENT_ID: ${{ secrets.VITE_GITHUB_CLIENT_ID }}
+          VITE_GITHUB_PROXY_URL: ${{ secrets.VITE_GITHUB_PROXY_URL }}
           VITE_TEMPLATE_REPO: ${{ vars.VITE_TEMPLATE_REPO }}
           VITE_REGISTRY_URL: ${{ vars.VITE_REGISTRY_URL }}
 

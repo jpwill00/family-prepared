@@ -1,0 +1,9 @@
+name = "family-prepared-github-auth"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Restrict to your GitHub Pages origin in production.
+# Set via: npx wrangler secret put ALLOWED_ORIGIN
+# Or uncomment and hardcode here:
+# [vars]
+# ALLOWED_ORIGIN = "https://jpwill00.github.io"

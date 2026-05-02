@@ -36,7 +36,7 @@ describe("startDeviceFlow", () => {
     const result = await startDeviceFlow();
 
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://github.com/login/device/code",
+      expect.stringContaining("device/code"),
       expect.objectContaining({ method: "POST" }),
     );
     expect(result.user_code).toBe("ABCD-1234");
@@ -46,6 +46,15 @@ describe("startDeviceFlow", () => {
   it("throws on non-OK response", async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
     await expect(startDeviceFlow()).rejects.toThrow("500");
+  });
+});
+
+describe("proxy URL routing", () => {
+  it("uses github.com URLs when VITE_GITHUB_PROXY_URL is not set", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => DEVICE_STATE });
+    await startDeviceFlow();
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toBe("https://github.com/login/device/code");
   });
 });
 
