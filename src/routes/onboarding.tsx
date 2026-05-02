@@ -23,7 +23,7 @@ import { ShieldCheck, Upload, Cloud, AlertCircle, ExternalLink, Loader2 } from "
 type GitHubStep =
   | { kind: "idle" }
   | { kind: "waiting"; userCode: string; verificationUri: string }
-  | { kind: "polling" }
+  | { kind: "polling"; userCode: string; verificationUri: string }
   | { kind: "repo_choice"; token: string; suggestedName: string }
   | { kind: "creating_repo" }
   | { kind: "repo_input"; token: string }
@@ -91,7 +91,7 @@ export default function OnboardingRoute() {
 
       const ac = new AbortController();
       abortRef.current = ac;
-      setGhStep({ kind: "polling" });
+      setGhStep({ kind: "polling", userCode: state.user_code, verificationUri: state.verification_uri });
 
       const token = await pollForToken(state, ac.signal);
       if (!token) {
@@ -298,7 +298,7 @@ export default function OnboardingRoute() {
                 <div className="rounded-lg border bg-muted/40 p-4 text-center">
                   <p className="text-xs text-muted-foreground mb-1">Your one-time code</p>
                   <p className="text-2xl font-mono font-bold tracking-widest">
-                    {ghStep.kind === "waiting" ? ghStep.userCode : ""}
+                    {(ghStep.kind === "waiting" || ghStep.kind === "polling") ? ghStep.userCode : ""}
                   </p>
                 </div>
                 <Button
@@ -306,7 +306,7 @@ export default function OnboardingRoute() {
                   variant="outline"
                   onClick={() =>
                     window.open(
-                      ghStep.kind === "waiting" ? ghStep.verificationUri : "https://github.com/login/device",
+                      (ghStep.kind === "waiting" || ghStep.kind === "polling") ? ghStep.verificationUri : "https://github.com/login/device",
                       "_blank",
                     )
                   }
