@@ -15,7 +15,7 @@ vi.mock("idb-keyval", () => ({
   }),
 }));
 
-import { saveRepo, loadRepo, clearRepo } from "@/lib/persistence/idb";
+import { saveRepo, loadRepo, clearRepo, getCryptoPromptDismissed, setCryptoPromptDismissed } from "@/lib/persistence/idb";
 import type { Repo } from "@/lib/schemas/plan";
 
 const EMPTY_REPO: Repo = {
@@ -163,5 +163,24 @@ describe("clearRepo", () => {
 
   it("is safe to call when nothing is stored", async () => {
     await expect(clearRepo()).resolves.not.toThrow();
+  });
+});
+
+describe("getCryptoPromptDismissed / setCryptoPromptDismissed", () => {
+  it("returns false when flag has never been set", async () => {
+    const result = await getCryptoPromptDismissed();
+    expect(result).toBe(false);
+  });
+
+  it("returns true after setCryptoPromptDismissed is called", async () => {
+    await setCryptoPromptDismissed();
+    const result = await getCryptoPromptDismissed();
+    expect(result).toBe(true);
+  });
+
+  it("persists across multiple reads", async () => {
+    await setCryptoPromptDismissed();
+    expect(await getCryptoPromptDismissed()).toBe(true);
+    expect(await getCryptoPromptDismissed()).toBe(true);
   });
 });

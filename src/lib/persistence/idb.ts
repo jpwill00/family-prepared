@@ -8,6 +8,7 @@ const TOKEN_KEY = "github_token";
 const SYNC_META_KEY = "github_sync_meta";
 const SALT_KEY = "crypto_salt";
 const ENCRYPTED_FIELDS_KEY = "encrypted_fields";
+const CRYPTO_PROMPT_DISMISSED_KEY = "crypto_prompt_dismissed";
 
 // ── Structured repo (plan data) ───────────────────────────────────────────────
 
@@ -127,4 +128,14 @@ export async function clearSalt(): Promise<void> {
 export async function hasEncryptedData(): Promise<boolean> {
   const fields = await get<Record<string, EncryptedField>>(ENCRYPTED_FIELDS_KEY);
   return !!fields && Object.keys(fields).length > 0;
+}
+
+// ── Passphrase nudge dismiss flag ─────────────────────────────────────────────
+
+export async function getCryptoPromptDismissed(): Promise<boolean> {
+  return (await get<boolean>(CRYPTO_PROMPT_DISMISSED_KEY)) ?? false;
+}
+
+export async function setCryptoPromptDismissed(): Promise<void> {
+  await set(CRYPTO_PROMPT_DISMISSED_KEY, true);
 }

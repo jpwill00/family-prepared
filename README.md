@@ -5,23 +5,26 @@ An offline-first PWA for building, versioning, and sharing family emergency-prep
 ## What it does
 
 - Build a complete family emergency plan (household, communication, logistics, inventory) through a friendly GUI
-- Plans are stored as human-readable Markdown + YAML, versioned in your own private GitHub repo
-- Works fully offline — your device is the source of truth
-- Sync across devices via GitHub OAuth (Device Flow — no backend required)
+- **No account required** — everything stays on your device; works fully offline
+- Share your plan as a ZIP file, PDF, or optional cloud backup
 - Sensitive fields (medical info, contacts, medications) encrypted at rest with AES-GCM
-- Export a printable PDF for your go-bag or a ZIP backup to share
+- Optional cloud backup via GitHub (Device Flow — no backend, repo created automatically)
+- Export a printable PDF for your go-bag
 - Browse and import community knowledge packs
 
 ## Quick start
 
-**Try it now** — open [https://jpwill00.github.io/family-prepared](https://jpwill00.github.io/family-prepared) in any browser. No account required; data stays local.
+**Try it now** — open [https://jpwill00.github.io/family-prepared](https://jpwill00.github.io/family-prepared) in any browser. No account required; your plan lives on your device.
 
-**To persist your plan across devices:**
-1. Create a new private GitHub repo (e.g. `yourname/family-plan`) — this holds your *data*, not the app code
-2. In the app → **Connect to GitHub** → complete the Device Flow authorization → enter your repo name
-3. The app syncs your plan to that repo as plain Markdown + YAML commits
+1. Click **Create plan** and name your plan
+2. Fill in your household, communication, logistics, and inventory sections
+3. Export a ZIP or PDF to share with family, or enable cloud backup in Settings
 
-See [instructions/usage-guide.md](instructions/usage-guide.md) for the full guide covering personal plans, hosting your own instance, family sharing, and contributing.
+**To enable cloud backup across devices (optional):**
+- In the app → **Settings** → **Online backup (optional)** → **Set up online backup**
+- The app creates a private repository for you automatically — no manual setup needed
+
+See [instructions/usage-guide.md](instructions/usage-guide.md) for the full guide, and [instructions/sharing-with-family.md](instructions/sharing-with-family.md) for sharing options.
 
 ## For developers
 

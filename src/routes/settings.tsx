@@ -698,11 +698,16 @@ export default function SettingsRoute() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-base font-semibold border-b pb-2">Backup & export</h2>
+          <h2 className="text-base font-semibold border-b pb-2">Share or back up your plan</h2>
+          <p className="text-sm text-muted-foreground">
+            Send your plan to family members, keep a local copy, or print it for your go-bag.
+          </p>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              Download a complete backup of your plan as a ZIP file. Use this to
-              transfer between devices or keep an offline copy.
+              Export your plan as a ZIP file you can share or archive.
+            </p>
+            <p className="text-xs text-muted-foreground italic">
+              Share this file with family members — they can open it in the app to load your plan.
             </p>
             <Button
               variant="outline"
@@ -710,7 +715,7 @@ export default function SettingsRoute() {
               disabled={exporting}
             >
               <Download className="h-4 w-4 mr-2" />
-              {exporting ? "Exporting…" : "Export ZIP backup"}
+              {exporting ? "Exporting…" : "Export as ZIP"}
             </Button>
           </div>
           <div className="space-y-2">
