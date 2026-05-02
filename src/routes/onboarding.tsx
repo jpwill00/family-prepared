@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ShieldCheck, Upload, GitBranch, AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import { ShieldCheck, Upload, Cloud, AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 
 type GitHubStep =
   | { kind: "idle" }
@@ -161,12 +161,17 @@ export default function OnboardingRoute() {
           </div>
         )}
 
+        <p className="text-sm text-muted-foreground rounded-md border bg-muted/30 px-4 py-3">
+          Everything is stored on this device — no account needed. You can enable
+          cloud backup at any time from Settings.
+        </p>
+
         <div className="space-y-4">
-          <Card>
+          <Card className="border-green-200 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Start fresh</CardTitle>
               <CardDescription>
-                Create a new plan with a blank template.
+                Create a new plan — everything stays on your device.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -191,9 +196,9 @@ export default function OnboardingRoute() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Import a backup</CardTitle>
+              <CardTitle className="text-base">Restore from a saved file</CardTitle>
               <CardDescription>
-                Restore from a .zip file you exported previously.
+                Load a plan from a .zip file you exported or received.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -211,28 +216,21 @@ export default function OnboardingRoute() {
                 onClick={() => fileRef.current?.click()}
               >
                 <Upload className="mr-2 h-4 w-4" />
-                {importing ? "Importing…" : "Choose .zip backup"}
+                {importing ? "Importing…" : "Choose .zip file"}
               </Button>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <GitBranch className="h-4 w-4" />
-                Connect to GitHub
-              </CardTitle>
-              <CardDescription>
-                Sync your plan to a private GitHub repository.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full" onClick={handleConnectGitHub}>
-                <GitBranch className="mr-2 h-4 w-4" />
-                Connect to GitHub
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={handleConnectGitHub}
+            >
+              <Cloud className="h-4 w-4" />
+              Sign in to restore from cloud backup
+            </button>
+          </div>
         </div>
       </div>
 
@@ -242,9 +240,9 @@ export default function OnboardingRoute() {
           {(ghStep.kind === "waiting" || ghStep.kind === "polling") && (
             <>
               <DialogHeader>
-                <DialogTitle>Authorize with GitHub</DialogTitle>
+                <DialogTitle>Set up cloud backup</DialogTitle>
                 <DialogDescription>
-                  Visit the link below and enter the code to authorize.
+                  Visit the link below and enter your one-time code to connect.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
@@ -281,14 +279,14 @@ export default function OnboardingRoute() {
           {ghStep.kind === "repo_input" && (
             <>
               <DialogHeader>
-                <DialogTitle>Connected to GitHub</DialogTitle>
+                <DialogTitle>Which backup would you like to load?</DialogTitle>
                 <DialogDescription>
-                  Enter the repository that holds your plan (e.g. <code>yourname/family-plan</code>).
+                  Enter the repository name that holds your plan (e.g. <code>yourname/family-plan</code>).
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="space-y-1">
-                  <Label htmlFor="repo-input">Repository</Label>
+                  <Label htmlFor="repo-input">Cloud backup name</Label>
                   <Input
                     id="repo-input"
                     placeholder="owner/repo-name"
@@ -297,7 +295,7 @@ export default function OnboardingRoute() {
                   />
                 </div>
                 <Button className="w-full" onClick={handleConnectRepo} disabled={!repoInput.trim()}>
-                  Load plan from GitHub
+                  Load plan from cloud backup
                 </Button>
                 <Button variant="ghost" className="w-full" onClick={handleCancelGitHub}>
                   Cancel
@@ -313,7 +311,7 @@ export default function OnboardingRoute() {
               </DialogHeader>
               <div className="flex items-center gap-3 py-4">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="text-sm text-muted-foreground">Fetching plan from GitHub…</span>
+                <span className="text-sm text-muted-foreground">Fetching plan from cloud backup…</span>
               </div>
             </>
           )}
