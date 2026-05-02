@@ -5,7 +5,7 @@ import { RepoSchema } from "@/lib/schemas/plan";
 import { importRepoFromZip } from "@/lib/persistence/zip";
 import { mergeFiles, saveSyncMeta } from "@/lib/persistence/idb";
 import { startDeviceFlow, pollForToken } from "@/lib/github/auth";
-import { getRepoMeta, pullRepo } from "@/lib/github/sync";
+import { getRepoMeta, pullRepo, createPlanRepo, getSuggestedRepoName, pushRepo } from "@/lib/github/sync";
 import { fetchSeedLibrary } from "@/lib/library/seed";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ type GitHubStep =
   | { kind: "idle" }
   | { kind: "waiting"; userCode: string; verificationUri: string }
   | { kind: "polling" }
+  | { kind: "repo_choice"; token: string; suggestedName: string }
+  | { kind: "creating_repo" }
   | { kind: "repo_input"; token: string }
   | { kind: "syncing" };
 
@@ -38,6 +40,7 @@ export default function OnboardingRoute() {
   const [importing, setImporting] = useState(false);
   const [ghStep, setGhStep] = useState<GitHubStep>({ kind: "idle" });
   const [repoInput, setRepoInput] = useState("");
+  const [repoNameInput, setRepoNameInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -96,7 +99,10 @@ export default function OnboardingRoute() {
         setError("GitHub authorization timed out or was cancelled.");
         return;
       }
-      setGhStep({ kind: "repo_input", token });
+      // Fetch suggested repo name while user sees the authorized state
+      const suggestedName = await getSuggestedRepoName(token).catch(() => "family-prepared-data");
+      setRepoNameInput(suggestedName);
+      setGhStep({ kind: "repo_choice", token, suggestedName });
     } catch (err) {
       setGhStep({ kind: "idle" });
       setError(err instanceof Error ? err.message : "GitHub authorization failed");
@@ -106,6 +112,47 @@ export default function OnboardingRoute() {
   function handleCancelGitHub() {
     abortRef.current?.abort();
     setGhStep({ kind: "idle" });
+  }
+
+  async function handleCreateRepo() {
+    if (ghStep.kind !== "repo_choice") return;
+    const { token } = ghStep;
+    const name = repoNameInput.trim();
+    if (!name) return;
+    setError(null);
+    setGhStep({ kind: "creating_repo" });
+    try {
+      const meta = await createPlanRepo(token, name);
+      const nwo = `${meta.owner}/${meta.repo}`;
+      // Seed the new repo with the current local plan
+      const currentRepo = usePlanStore.getState().repo;
+      if (currentRepo) {
+        await pushRepo(token, nwo, currentRepo, "chore: initial plan from Family Prepared");
+      }
+      await saveSyncMeta({
+        lastPullSha: meta.latestSha,
+        lastSyncedAt: new Date().toISOString(),
+        connectedRepo: nwo,
+        connectedUser: meta.login,
+      });
+      navigate("/plan/household", { replace: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create backup repository";
+      if (msg.startsWith("REPO_EXISTS:")) {
+        const nwo = msg.replace("REPO_EXISTS:", "");
+        setError(`You already have a backup named "${nwo.split("/")[1]}" — use it below, or pick a new name.`);
+        setGhStep({ kind: "repo_choice", token, suggestedName: ghStep.suggestedName });
+      } else {
+        setGhStep({ kind: "repo_choice", token, suggestedName: ghStep.suggestedName });
+        setError(msg);
+      }
+    }
+  }
+
+  function handleUseExistingRepo() {
+    if (ghStep.kind !== "repo_choice") return;
+    const { token } = ghStep;
+    setGhStep({ kind: "repo_input", token });
   }
 
   async function handleConnectRepo() {
@@ -138,6 +185,8 @@ export default function OnboardingRoute() {
   const ghDialogOpen =
     ghStep.kind === "waiting" ||
     ghStep.kind === "polling" ||
+    ghStep.kind === "repo_choice" ||
+    ghStep.kind === "creating_repo" ||
     ghStep.kind === "repo_input" ||
     ghStep.kind === "syncing";
 
@@ -276,10 +325,64 @@ export default function OnboardingRoute() {
             </>
           )}
 
+          {ghStep.kind === "repo_choice" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Set up your cloud backup</DialogTitle>
+                <DialogDescription>
+                  We'll create a private backup repository for your plan — just confirm the name.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-1">
+                  <Label htmlFor="repo-name-input">Backup name</Label>
+                  <Input
+                    id="repo-name-input"
+                    value={repoNameInput}
+                    onChange={(e) => setRepoNameInput(e.target.value)}
+                    placeholder="family-prepared-data"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    A private repository will be created on your GitHub account.
+                  </p>
+                </div>
+                <Button
+                  className="w-full bg-green-700 hover:bg-green-800 text-white"
+                  onClick={handleCreateRepo}
+                  disabled={!repoNameInput.trim()}
+                >
+                  Create backup &amp; save plan
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors text-center"
+                  onClick={handleUseExistingRepo}
+                >
+                  I already have a backup repository
+                </button>
+                <Button variant="ghost" className="w-full" onClick={handleCancelGitHub}>
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {ghStep.kind === "creating_repo" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Creating your backup…</DialogTitle>
+              </DialogHeader>
+              <div className="flex items-center gap-3 py-4">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm text-muted-foreground">Setting up your private repository…</span>
+              </div>
+            </>
+          )}
+
           {ghStep.kind === "repo_input" && (
             <>
               <DialogHeader>
-                <DialogTitle>Which backup would you like to load?</DialogTitle>
+                <DialogTitle>Connect existing backup</DialogTitle>
                 <DialogDescription>
                   Enter the repository name that holds your plan (e.g. <code>yourname/family-plan</code>).
                 </DialogDescription>
