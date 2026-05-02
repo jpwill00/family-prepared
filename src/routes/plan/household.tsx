@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { usePlanStore } from "@/lib/store/plan";
 import { HouseholdMemberSchema } from "@/lib/schemas/plan";
 import type { HouseholdMember } from "@/lib/schemas/plan";
+import { getCryptoPromptDismissed, setCryptoPromptDismissed } from "@/lib/persistence/idb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Users, Plus, Pencil, Trash2 } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Lock, X } from "lucide-react";
 
 const FormSchema = HouseholdMemberSchema.omit({ id: true, photo_path: true });
 type FormValues = z.infer<typeof FormSchema>;
@@ -42,10 +43,32 @@ function nanoid() {
 export default function HouseholdRoute() {
   const members = usePlanStore((s) => s.repo?.plan.household.members ?? []);
   const updateHousehold = usePlanStore((s) => s.updateHousehold);
+  const hasCryptoKey = usePlanStore((s) => s.cryptoKey !== null);
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Passphrase nudge: shown once when the user first enters a sensitive field
+  const [showNudge, setShowNudge] = useState(false);
+  // nudgeEligible is set to true on mount if the user hasn't dismissed and has no passphrase
+  const [nudgeEligible, setNudgeEligible] = useState(false);
+
+  useEffect(() => {
+    if (hasCryptoKey) return;
+    void getCryptoPromptDismissed().then((dismissed) => {
+      if (!dismissed) setNudgeEligible(true);
+    });
+  }, [hasCryptoKey]);
+
+  async function handleDismissNudge() {
+    setShowNudge(false);
+    await setCryptoPromptDismissed();
+  }
+
+  function handleMedicalFocus() {
+    if (nudgeEligible) setShowNudge(true);
+  }
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -110,6 +133,40 @@ export default function HouseholdRoute() {
           Add member
         </Button>
       </div>
+
+      {showNudge && (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 mb-4 text-sm"
+        >
+          <Lock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium text-amber-800">This field is private</p>
+            <p className="text-amber-700 mt-0.5">
+              Set a passphrase to encrypt sensitive info on this device.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2 border-amber-300 text-amber-800 hover:bg-amber-100"
+              onClick={() => {
+                void handleDismissNudge();
+                window.location.href = "/settings";
+              }}
+            >
+              Set passphrase
+            </Button>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            className="text-amber-500 hover:text-amber-700 transition-colors"
+            onClick={handleDismissNudge}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {members.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
@@ -230,6 +287,7 @@ export default function HouseholdRoute() {
               <Input
                 id="medical"
                 placeholder="e.g. EpiPen required, asthma"
+                onFocus={handleMedicalFocus}
                 {...form.register("medical")}
               />
             </div>
