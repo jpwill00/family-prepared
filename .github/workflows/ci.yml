@@ -107,6 +107,7 @@ jobs:
         run: pnpm build
         env:
           VITE_GITHUB_CLIENT_ID: ci-placeholder
+          VITE_GITHUB_PROXY_URL: https://ci-placeholder.workers.dev
           VITE_TEMPLATE_REPO: family-prepared/family-prepared-template
           VITE_REGISTRY_URL: https://example.com/registry.json
 

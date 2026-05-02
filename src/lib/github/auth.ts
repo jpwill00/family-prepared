@@ -3,8 +3,20 @@
 import { saveToken, loadToken, clearToken, clearSyncMeta } from "@/lib/persistence/idb";
 
 const CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID as string;
-const DEVICE_CODE_URL = "https://github.com/login/device/code";
-const ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token";
+
+// VITE_GITHUB_PROXY_URL points to the Cloudflare Worker that proxies GitHub's
+// OAuth endpoints and adds CORS headers. GitHub's own endpoints don't return
+// Access-Control-Allow-Origin, so direct browser fetch() calls are blocked.
+// See cloudflare/github-auth-proxy/ for the worker source and deploy instructions.
+const PROXY_URL = (import.meta.env.VITE_GITHUB_PROXY_URL as string | undefined)?.replace(/\/$/, "");
+
+const DEVICE_CODE_URL = PROXY_URL
+  ? `${PROXY_URL}/device/code`
+  : "https://github.com/login/device/code";
+
+const ACCESS_TOKEN_URL = PROXY_URL
+  ? `${PROXY_URL}/access_token`
+  : "https://github.com/login/oauth/access_token";
 
 export interface DeviceFlowState {
   device_code: string;
