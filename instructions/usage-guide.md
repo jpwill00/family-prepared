@@ -34,17 +34,22 @@ Medical notes and other sensitive fields can be encrypted on your device with a 
 To back up your plan and access it across devices:
 
 1. In the app → **Settings → Online backup (optional)** → click **Set up online backup**
-2. Complete the one-time authorization flow (no password needed — uses a temporary code shown on screen)
-3. The app suggests a backup repository name (e.g. `family-prepared-yourname`) and creates a **private** repository on your GitHub account automatically
-4. Your current plan is pushed to the new repository immediately
+2. A dialog appears showing an **8-character one-time code** (e.g. `48F0-DF16`) — this code is displayed directly in the app, not sent by email
+3. Click **Open github.com/login/device** — GitHub opens in a new tab
+4. Sign in to GitHub if prompted, then type the code from the app and click **Authorize**
+5. Switch back to the app — it detects the authorization automatically
+6. The app suggests a backup repository name (e.g. `family-prepared-yourname`) and creates a **private** repository on your GitHub account automatically
+7. Your current plan is pushed to the new repository immediately
 
 To save changes back to the cloud: **Save to cloud now**. To load the latest version: **Load latest from cloud**.
 
-> Your backup repository and the app code repository are completely separate. The backup repo contains only your plan data.
+> **The code is in the app, not your email.** GitHub Device Flow shows a short code on screen — you type it at github.com/login/device. No email, no SMS, no password.
+
+> Your backup repository and the app code repository are completely separate. The backup repo contains only your plan data (YAML files) — not the app source code.
 
 ### Already have a backup repository?
 
-If you previously created a backup or want to connect to a shared family repo, click **I already have a backup repository** after the authorization step and enter the repository name (e.g. `yourname/family-prepared-yourname`).
+If you previously created a backup or want to connect to a shared family repo, click **I already have a backup repository** after the authorization step and enter the repository name in `owner/repo` format (e.g. `yourname/cypress-plan`).
 
 ---
 
@@ -76,8 +81,12 @@ cp .env.example .env.local
 
 | Variable | How to get it |
 |---|---|
-| `VITE_GITHUB_CLIENT_ID` | Create a GitHub OAuth App at github.com/settings/developers. Set the callback URL to your GitHub Pages URL. |
+| `VITE_GITHUB_CLIENT_ID` | Create a GitHub OAuth App at github.com/settings/developers. Set the homepage URL to your GitHub Pages URL. No client secret needed — uses Device Flow. |
+| `VITE_GITHUB_PROXY_URL` | Deploy the Cloudflare Worker in `cloudflare/github-auth-proxy/` with `npx wrangler deploy` — paste the resulting `*.workers.dev` URL here. Required because GitHub's OAuth endpoints don't send CORS headers. |
 | `VITE_TEMPLATE_REPO` | `jpwill00/family-prepared-template` (or your own fork) |
+| `VITE_REGISTRY_URL` | Optional — URL of a community pack registry JSON file |
+
+Add `VITE_GITHUB_CLIENT_ID` and `VITE_GITHUB_PROXY_URL` as **GitHub Actions secrets** (Settings → Secrets → Actions) so the deploy workflow can bake them into the production build.
 
 ```bash
 # 3. Install, build, and deploy

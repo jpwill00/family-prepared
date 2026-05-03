@@ -40,7 +40,16 @@ pnpm lint       # ESLint check
 pnpm typecheck  # TypeScript check
 ```
 
-Copy `.env.example` to `.env.local` and fill in `VITE_GITHUB_CLIENT_ID` and `VITE_TEMPLATE_REPO` before running the GitHub sync features.
+Copy `.env.example` to `.env.local` and fill in the required variables before running the GitHub sync features:
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `VITE_GITHUB_CLIENT_ID` | Yes (auth) | GitHub OAuth App client ID — register at github.com/settings/developers |
+| `VITE_GITHUB_PROXY_URL` | Yes (auth) | Cloudflare Worker URL that adds CORS headers to GitHub's OAuth endpoints — see `cloudflare/github-auth-proxy/` |
+| `VITE_TEMPLATE_REPO` | Yes | Canonical template repo in `owner/repo` format |
+| `VITE_REGISTRY_URL` | Optional | Community pack registry JSON URL |
+
+The GitHub auth flow uses a Cloudflare Worker CORS proxy (`cloudflare/github-auth-proxy/`) because GitHub's OAuth Device Flow endpoints don't return `Access-Control-Allow-Origin` headers. Deploy the worker with `npx wrangler deploy` and set `VITE_GITHUB_PROXY_URL` to its URL — see the README in that directory for full setup steps.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the PR workflow and coding conventions.
 
