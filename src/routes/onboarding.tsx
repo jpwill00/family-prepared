@@ -192,11 +192,9 @@ export default function OnboardingRoute() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
-      <div className="w-full max-w-lg space-y-6">
+      <div className="w-full max-w-lg space-y-8">
         <div className="text-center space-y-2">
-          <div className="flex justify-center">
-            <ShieldCheck className="h-12 w-12 text-green-600" />
-          </div>
+          <ShieldCheck className="mx-auto h-12 w-12 text-green-600" />
           <h1 className="text-3xl font-bold">Family Prepared</h1>
           <p className="text-muted-foreground">
             Build your emergency plan — offline-first, private, always available.
@@ -210,77 +208,81 @@ export default function OnboardingRoute() {
           </div>
         )}
 
-        <p className="text-sm text-muted-foreground rounded-md border bg-muted/30 px-4 py-3">
-          Everything is stored on this device — no account needed. You can enable
-          cloud backup at any time from Settings.
-        </p>
-
-        <div className="space-y-4">
-          <Card className="border-green-200 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Start fresh</CardTitle>
-              <CardDescription>
-                Create a new plan — everything stays on your device.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="plan-name">Plan name</Label>
-                <Input
-                  id="plan-name"
-                  value={planName}
-                  onChange={(e) => setPlanName(e.target.value)}
-                  placeholder="e.g. Smith Family Plan"
-                />
-              </div>
-              <Button
-                className="w-full bg-green-700 hover:bg-green-800 text-white"
-                onClick={handleStartFresh}
-                disabled={!initialized}
-              >
-                {initialized ? "Create plan" : "Loading…"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Restore from a saved file</CardTitle>
-              <CardDescription>
-                Load a plan from a .zip file you exported or received.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".zip"
-                className="hidden"
-                onChange={handleImportZip}
+        <Card className="border-green-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle>Create your family plan</CardTitle>
+            <CardDescription>
+              Everything stays on your device — no account needed. You can add cloud
+              backup anytime from Settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="plan-name">Plan name</Label>
+              <Input
+                id="plan-name"
+                value={planName}
+                onChange={(e) => setPlanName(e.target.value)}
+                placeholder="e.g. Smith Family Plan"
               />
-              <Button
-                variant="outline"
-                className="w-full"
-                disabled={importing}
-                onClick={() => fileRef.current?.click()}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                {importing ? "Importing…" : "Choose .zip file"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <div className="text-center pt-1">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              onClick={handleConnectGitHub}
+            </div>
+            <Button
+              className="w-full bg-green-700 hover:bg-green-800 text-white"
+              onClick={handleStartFresh}
+              disabled={!initialized}
             >
-              <Cloud className="h-4 w-4" />
-              Sign in to restore from cloud backup
-            </button>
+              {initialized ? "Create plan" : "Loading…"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-muted/20 px-2 text-muted-foreground">Already have a plan?</span>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+            className="flex flex-col items-start gap-2 rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
+          >
+            <Upload className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">{importing ? "Importing…" : "Open from ZIP file"}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Use a .zip file you exported or received from a family member.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleConnectGitHub}
+            className="flex flex-col items-start gap-2 rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent"
+          >
+            <Cloud className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Restore from cloud</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Sign in with GitHub to pull your plan from your private backup.
+              </p>
+            </div>
+          </button>
+        </div>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".zip"
+          className="hidden"
+          onChange={handleImportZip}
+        />
       </div>
 
       {/* GitHub Device Flow Dialog */}

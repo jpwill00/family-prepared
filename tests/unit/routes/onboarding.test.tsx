@@ -70,19 +70,18 @@ describe("OnboardingRoute — local-first UX hierarchy", () => {
     expect(createBtn.className).toMatch(/bg-green-700/);
   });
 
-  it("renders 'Restore from a saved file' as a secondary card", () => {
+  it("renders 'Open from ZIP file' as a secondary tile in the 'already have a plan' section", () => {
     renderOnboarding();
-    expect(screen.getByText(/restore from a saved file/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /choose \.zip file/i })).toBeInTheDocument();
+    expect(screen.getByText(/open from zip file/i)).toBeInTheDocument();
+    expect(screen.getByText(/zip file you exported or received/i)).toBeInTheDocument();
   });
 
-  it("renders the cloud backup option as a plain text link, not a Card", () => {
+  it("renders the cloud backup option as an equal-weight tile alongside the ZIP option", () => {
     renderOnboarding();
-    const cloudLink = screen.getByRole("button", { name: /sign in to restore from cloud backup/i });
-    expect(cloudLink).toBeInTheDocument();
-    // Must NOT be a full-weight variant button — no bg-* class
-    expect(cloudLink.className).not.toMatch(/bg-green-/);
-    expect(cloudLink.className).not.toMatch(/variant-default/);
+    const cloudTile = screen.getByRole("button", { name: /restore from cloud/i });
+    expect(cloudTile).toBeInTheDocument();
+    // Must NOT have primary green styling — it is a secondary action tile
+    expect(cloudTile.className).not.toMatch(/bg-green-/);
   });
 
   it("shows the 'no account needed' disclosure message", () => {
